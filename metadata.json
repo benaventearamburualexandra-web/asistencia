@@ -1,0 +1,9 @@
+{
+  "name": "Asistencia Docente QR",
+  "description": "Sistema de control de asistencia para docentes mediante códigos QR y entrada manual, con reportes detallados en Excel.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
