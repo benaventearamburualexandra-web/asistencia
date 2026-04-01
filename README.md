@@ -57,7 +57,7 @@ Si quieres que el sistema funcione siempre sin depender de tu laptop, puedes sub
 3. Selecciona tu repositorio `asistencia-docente`.
 4. Render leerá el archivo `render.yaml` que he incluido y configurará todo automáticamente:
    *   Creará el servidor web.
-   *   Creará un **Disco (Volume)** de 1GB para que la base de datos no se borre.
+   *   Se conectará a tu base de datos externa de Supabase.
    *   Te dará un enlace permanente (ejemplo: `asistencia-docente.onrender.com`).
 
 ## Estructura del Proyecto

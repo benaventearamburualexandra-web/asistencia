@@ -257,17 +257,16 @@ export default function App() {
       
       // Helper to safely parse JSON
       const safeJson = async (res: Response) => {
-        if (!res.ok) return [];
         const contentType = res.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           try {
             return await res.json();
           } catch (e) {
             console.error('Error parsing JSON:', e);
-            return [];
+            return null;
           }
         }
-        return [];
+        return null;
       };
 
       if (hRes.ok) {

@@ -39,7 +39,12 @@ pool.on('error', (err) => {
 
 // Initialize Database
 async function initDb() {
+  console.log("🔍 Iniciando conexión con Supabase...");
   try {
+    const client = await pool.connect();
+    console.log("✅ Conexión exitosa a PostgreSQL.");
+    client.release();
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS teachers (
         id TEXT PRIMARY KEY,
@@ -72,9 +77,7 @@ async function initDb() {
     console.log("📊 Verificando tablas...");
     const { rows } = await pool.query("SELECT COUNT(*) as count FROM teachers");
     if (parseInt(rows[0].count) === 0) {
-      await pool.query("INSERT INTO teachers (id, name) VALUES ($1, $2)", ["DOC-001", "Juan Pérez"]);
-      await pool.query("INSERT INTO teachers (id, name) VALUES ($1, $2)", ["DOC-002", "María García"]);
-      await pool.query("INSERT INTO teachers (id, name) VALUES ($1, $2)", ["DOC-003", "Carlos Rodríguez"]);
+      await pool.query("INSERT INTO teachers (id, name) VALUES ('DOC-001', 'Juan Pérez'), ('DOC-002', 'María García'), ('DOC-003', 'Carlos Rodríguez')");
       console.log("✅ Datos iniciales insertados");
     }
 
@@ -84,7 +87,7 @@ async function initDb() {
       await pool.query("INSERT INTO admins (username, password, name) VALUES ($1, $2, $3)", ["admin", "admin123", "Administrador Principal"]);
     }
   } catch (err) {
-    console.error("❌ ERROR CRÍTICO EN DB:", err instanceof Error ? err.message : err);
+    console.error("❌ ERROR CRÍTICO AL CONECTAR O INICIALIZAR DB:", err instanceof Error ? err.stack : err);
   }
 }
 
