@@ -8,9 +8,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATABASE_PATH
-        value: /data/asistencia.db
-    disk:
-      name: database-disk
-      mountPath: /data
-      sizeGB: 1
+      - key: DATABASE_URL
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: PORT
+        value: 3000

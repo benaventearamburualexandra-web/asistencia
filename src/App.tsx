@@ -51,25 +51,39 @@ interface AbsenceRecord {
 }
 
 type AttendanceType = 'ENTRADA' | 'SALIDA';
-type ActiveTab = 'asistencia' | 'docentes' | 'reportes' | 'faltas';
+type ActiveTab = 'asistencia' | 'docentes' | 'reportes' | 'faltas' | 'config';
 
 export default function App() {
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminUser, setAdminUser] = useState<{username: string, name: string} | null>(null);
   const [showLogin, setShowLogin] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('asistencia');
   const [mode, setMode] = useState<'scan' | 'manual'>('scan');
   const [attendanceType, setAttendanceType] = useState<AttendanceType>('ENTRADA');
+  // REFERENCIA PARA EL ESCÁNER: Permite que la cámara lea el valor actual sin reiniciarse
+  const attendanceTypeRef = useRef<AttendanceType>('ENTRADA');
+
+  useEffect(() => {
+    attendanceTypeRef.current = attendanceType;
+  }, [attendanceType]);
+
   const [teacherId, setTeacherId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [absences, setAbsences] = useState<AbsenceRecord[]>([]);
+  const [admins, setAdmins] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isWakingUp, setIsWakingUp] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
+  const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [newTeacher, setNewTeacher] = useState({ id: '', name: '' });
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
+  const [newAdmin, setNewAdmin] = useState({ username: '', password: '', name: '' });
   const [selectedTeacherQR, setSelectedTeacherQR] = useState<Teacher | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -226,12 +240,19 @@ export default function App() {
   const fetchData = async () => {
     setIsLoading(true);
     setDbStatus('checking');
+    
+    // Si el servidor tarda más de 2 segundos, asumimos que está "despertando"
+    const wakeupTimer = setTimeout(() => {
+      setIsWakingUp(true);
+    }, 2000);
+
     try {
-      const [tRes, rRes, aRes, hRes] = await Promise.all([
+      const [tRes, rRes, aRes, hRes, admRes] = await Promise.all([
         fetch('/api/teachers'),
         fetch('/api/report'),
         fetch('/api/absences'),
-        fetch('/api/health')
+        fetch('/api/health'),
+        fetch('/api/admins')
       ]);
       
       // Helper to safely parse JSON
@@ -259,15 +280,17 @@ export default function App() {
         setDbErrorMessage(health && health.message ? health.message : 'Error de conexión con el servidor');
       }
 
-      const [tData, rData, aData] = await Promise.all([
+      const [tData, rData, aData, admData] = await Promise.all([
         safeJson(tRes),
         safeJson(rRes),
-        safeJson(aRes)
+        safeJson(aRes),
+        safeJson(admRes)
       ]);
 
       setTeachers(Array.isArray(tData) ? tData : []);
       setRecords(Array.isArray(rData) ? rData : []);
       setAbsences(Array.isArray(aData) ? aData : []);
+      setAdmins(Array.isArray(admData) ? admData : []);
 
       if (!tRes.ok || !rRes.ok || !aRes.ok) {
         toast.error('Error al cargar algunos datos de la base de datos');
@@ -325,22 +348,63 @@ export default function App() {
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTeacher.id || !newTeacher.name) return;
+    const teacherToSave = { ...newTeacher };
+    if (!teacherToSave.id || !teacherToSave.name) return;
 
     try {
       const response = await fetch('/api/teachers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTeacher),
+        body: JSON.stringify(teacherToSave),
       });
       if (response.ok) {
-        toast.success('Docente añadido');
+        toast.success(`Docente ${teacherToSave.name} registrado con éxito`);
+        setSelectedTeacherQR(teacherToSave); // Muestra el QR inmediatamente después de guardar
         setNewTeacher({ id: '', name: '' });
         setShowAddTeacher(false);
         fetchData();
       } else {
         const data = await response.json();
         toast.error(data.error || 'Error');
+      }
+    } catch (error) {
+      toast.error('Error de conexión');
+    }
+  };
+
+  const handleUpdateTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeacher) return;
+
+    try {
+      const response = await fetch(`/api/teachers/${editingTeacher.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingTeacher.name }),
+      });
+      if (response.ok) {
+        toast.success('Docente actualizado');
+        setShowEditTeacher(false);
+        setEditingTeacher(null);
+        fetchData();
+      } else {
+        toast.error('Error al actualizar');
+      }
+    } catch (error) {
+      toast.error('Error de conexión');
+    }
+  };
+
+  const handleDeleteTeacher = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar a este docente?')) return;
+    try {
+      const response = await fetch(`/api/teachers/${id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Docente eliminado');
+        fetchData();
+      } else {
+        toast.error(data.error || 'Error al eliminar');
       }
     } catch (error) {
       toast.error('Error de conexión');
@@ -475,29 +539,27 @@ export default function App() {
   const handleAttendance = async (id: string) => {
     if (isSubmitting) return;
     
-    const teacher = (Array.isArray(teachers) ? teachers : []).find(t => t.id === id);
-    if (!teacher) {
-      toast.error('Docente no encontrado', {
-        icon: <AlertCircle className="text-red-500" />,
-      });
-      return;
-    }
+    // Limpiamos el ID de espacios accidentales (común en QRs)
+    const cleanId = id.trim();
 
     setIsSubmitting(true);
-    const loadingToast = toast.loading(`Registrando...`);
+    const loadingToast = toast.loading(`Verificando ID: ${cleanId}...`);
 
     try {
       const response = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          teacherId: id,
-          type: attendanceType
+          teacherId: cleanId,
+          type: attendanceTypeRef.current // USA LA REFERENCIA ACTUALIZADA
         }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        toast.success(`${attendanceType} registrada: ${teacher.name}`, {
+        // El servidor nos confirma el nombre real del docente
+        toast.success(`${attendanceTypeRef.current} registrada: ${data.teacherName || cleanId}`, {
           id: loadingToast,
           icon: <CheckCircle2 className="text-green-500" />,
           duration: 4000
@@ -505,8 +567,7 @@ export default function App() {
         setTeacherId('');
         fetchData(); // Refresh records
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al registrar');
+        throw new Error(data.error || 'Error al registrar');
       }
     } catch (error: any) {
       toast.error(error.message || 'Error de conexión', { id: loadingToast });
@@ -551,20 +612,50 @@ export default function App() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') { // Simple password for demo
-      setIsAdmin(true);
-      setShowLogin(false);
-      setPassword('');
-      toast.success('Acceso concedido');
-    } else {
-      toast.error('Contraseña incorrecta');
+    const loading = toast.loading('Autenticando...');
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginUsername, password }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setAdminUser(data.user);
+        setShowLogin(false);
+        setPassword('');
+        toast.success(`Bienvenido, ${data.user.name}`, { id: loading });
+      } else {
+        toast.error(data.error || 'Credenciales inválidas', { id: loading });
+      }
+    } catch (error) {
+      toast.error('Error de conexión', { id: loading });
+    }
+  };
+
+  const handleSaveAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAdmin),
+      });
+      if (response.ok) {
+        toast.success('Administrador guardado/actualizado');
+        setShowAddAdmin(false);
+        setNewAdmin({ username: '', password: '', name: '' });
+        fetchData();
+      }
+    } catch (error) {
+      toast.error('Error al guardar');
     }
   };
 
   const handleLogout = () => {
-    setIsAdmin(false);
+    setAdminUser(null);
     setActiveTab('asistencia');
     toast.success('Sesión cerrada');
   };
@@ -633,7 +724,7 @@ export default function App() {
               <span>Asistencia</span>
             </button>
             
-            {isAdmin && (
+            {adminUser && (
               <>
                 <button
                   onClick={() => setActiveTab('docentes')}
@@ -667,7 +758,7 @@ export default function App() {
           </div>
 
           <div className="p-4 border-t border-gray-100">
-            {isAdmin ? (
+            {adminUser ? (
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50 transition-all"
@@ -904,8 +995,14 @@ export default function App() {
                       <h3 className="font-bold text-lg leading-tight mb-1">{teacher.name}</h3>
                       <p className="text-xs font-mono text-gray-400 uppercase tracking-widest">{teacher.id}</p>
                       
-                      <div className="mt-6 pt-6 border-t border-gray-50 flex justify-end">
-                        <button className="text-gray-300 hover:text-red-500 transition-colors">
+                      <div className="mt-6 pt-6 border-t border-gray-50 flex justify-end gap-2">
+                        <button 
+                          onClick={() => { setEditingTeacher(teacher); setShowEditTeacher(true); }}
+                          className="text-gray-300 hover:text-indigo-600 transition-colors p-2"
+                        >
+                          <Settings size={18} />
+                        </button>
+                        <button onClick={() => handleDeleteTeacher(teacher.id)} className="text-gray-300 hover:text-red-500 transition-colors p-2">
                           <Trash2 size={18} />
                         </button>
                       </div>
@@ -1080,7 +1177,7 @@ export default function App() {
                 </div>
               </motion.div>
             )}
-            {activeTab === 'faltas' && isAdmin && (
+            {activeTab === 'faltas' && adminUser && (
               <motion.div
                 key="faltas"
                 initial={{ opacity: 0, x: 20 }}
@@ -1148,6 +1245,48 @@ export default function App() {
                 </div>
               </motion.div>
             )}
+
+            {activeTab === 'config' && adminUser && (
+              <motion.div
+                key="config"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-8"
+              >
+                <div>
+                  <h2 className="text-3xl font-extrabold tracking-tight">Configuración del Sistema</h2>
+                  <p className="text-gray-500 font-medium">Gestiona las cuentas de administradores</p>
+                </div>
+
+                <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="font-bold text-xl">Administradores</h3>
+                    <button 
+                      onClick={() => setShowAddAdmin(true)}
+                      className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold"
+                    >
+                      Añadir/Editar Admin
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {admins.map((adm: any) => (
+                      <div key={adm.username} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                        <div>
+                          <div className="font-bold">{adm.name}</div>
+                          <div className="text-xs text-gray-400">Usuario: {adm.username}</div>
+                        </div>
+                        <button 
+                          onClick={() => { setNewAdmin({...adm, password: ''}); setShowAddAdmin(true); }}
+                          className="text-indigo-600 text-sm font-bold"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </main>
@@ -1167,6 +1306,15 @@ export default function App() {
             >
               <h2 className="text-2xl font-extrabold mb-6">Acceso Administrador</h2>
               <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Usuario</label>
+                  <input 
+                    type="text" required value={loginUsername}
+                    onChange={e => setLoginUsername(e.target.value)}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                    placeholder="admin"
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Contraseña</label>
                   <input 
@@ -1251,6 +1399,51 @@ export default function App() {
             </motion.div>
           </div>
         )}
+
+        {showAddAdmin && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowAddAdmin(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 w-full max-w-md relative z-10 shadow-2xl">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-extrabold">Gestionar Admin</h2>
+                <X onClick={() => setShowAddAdmin(false)} className="cursor-pointer" />
+              </div>
+              <form onSubmit={handleSaveAdmin} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Nombre Completo</label>
+                  <input 
+                    type="text" required value={newAdmin.name}
+                    onChange={e => setNewAdmin({...newAdmin, name: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
+                    placeholder="Ej: Nicolle Admin"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Usuario</label>
+                  <input 
+                    type="text" required value={newAdmin.username}
+                    onChange={e => setNewAdmin({...newAdmin, username: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
+                    placeholder="nicolle.admin"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-400 uppercase">Nueva Contraseña</label>
+                  <input 
+                    type="password" required value={newAdmin.password}
+                    onChange={e => setNewAdmin({...newAdmin, password: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <p className="text-[10px] text-gray-400 italic">* Si el usuario ya existe, se actualizarán sus datos.</p>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">
+                  Guardar Administrador
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
         {showAddTeacher && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
@@ -1289,6 +1482,44 @@ export default function App() {
                 </div>
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
                   Guardar Docente
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {showEditTeacher && editingTeacher && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => { setShowEditTeacher(false); setEditingTeacher(null); }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-[2.5rem] p-10 w-full max-w-md relative z-10 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-extrabold">Editar Docente</h2>
+                <button onClick={() => { setShowEditTeacher(false); setEditingTeacher(null); }} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleUpdateTeacher} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">ID (No se puede cambiar)</label>
+                  <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombre Completo</label>
+                  <input 
+                    type="text" required value={editingTeacher.name}
+                    onChange={e => setEditingTeacher({...editingTeacher, name: e.target.value})}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                  Actualizar Datos
                 </button>
               </form>
             </motion.div>

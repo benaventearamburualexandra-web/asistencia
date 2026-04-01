@@ -1,6 +1,6 @@
 # Sistema de Asistencia Docente QR
 
-Este proyecto es una aplicación full-stack (React + Express + SQLite) para el control de asistencia de docentes mediante códigos QR.
+Este proyecto es una aplicación full-stack (React + Express + PostgreSQL/Supabase) para el control de asistencia de docentes mediante códigos QR.
 
 ## Requisitos Previos
 
@@ -62,13 +62,13 @@ Si quieres que el sistema funcione siempre sin depender de tu laptop, puedes sub
 
 ## Estructura del Proyecto
 
-- `server.ts`: Servidor backend (Express + SQLite).
+ `server.ts`: Servidor backend (Express + PostgreSQL/Supabase).
 - `src/App.tsx`: Aplicación frontend (React).
 - `src/index.css`: Estilos globales (Tailwind CSS).
-- `asistencia.db`: Archivo de base de datos (se crea automáticamente al iniciar).
 
 ## Notas Importantes
 
+- **Base de Datos**: El sistema usa Supabase. Asegúrate de que la variable `DATABASE_URL` esté configurada en el archivo `.env` localmente y en el panel de control de Render.
 - **Cámara**: Para que el escáner QR funcione, debes acceder mediante `https` o usar `localhost`.
 - **Admin**: La contraseña por defecto para el panel de administración es `admin123`.
 - **Excel**: Los reportes se descargan en formato `.xlsx` real, compatible con Microsoft Excel.
