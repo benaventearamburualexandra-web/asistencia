@@ -206,24 +206,6 @@ async function startServer() {
       // Usamos en-GB para forzar formato 24h (HH:mm:ss) y evitar problemas de AM/PM
       const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone }).format(now);
 
-      // Verifica el último registro (Bloque restaurado sin el aviso de bloqueo)
-      const { rows } = await pool.query(
-        "SELECT time FROM attendance WHERE teacher_id = $1 AND type = $2 AND date = $3 ORDER BY id DESC LIMIT 1",
-        [tid, type, date]
-      );
-      
-      if (rows.length > 0) {
-        const lastTime = rows[0].time;
-        const [lastH, lastM] = lastTime.split(':').map(Number);
-        const [currH, currM] = time.split(':').map(Number);
-        
-        // Calculamos la diferencia solo por referencia, pero YA NO bloqueamos
-        if (!isNaN(lastH) && !isNaN(lastM)) {
-          const diff = (currH * 60 + currM) - (lastH * 60 + lastM);
-          // Se eliminó la línea "return res.status(400)..." para que nunca salga el aviso.
-        }
-      }
-
       await pool.query(
         "INSERT INTO attendance (teacher_id, type, date, time) VALUES ($1, $2, $3, $4)",
         [tid, type, date, time]

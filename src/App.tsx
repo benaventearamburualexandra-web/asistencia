@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Toaster, toast } from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
@@ -684,17 +684,17 @@ export default function App() {
     }
   };
 
-  const filteredRecords = (Array.isArray(records) ? records : []).filter(r => {
+  const filteredRecords = useMemo(() => (Array.isArray(records) ? records : []).filter(r => {
     if (reportWeek) return isDateInWeek(r.date, reportWeek);
     if (reportMonth) return r.date.startsWith(reportMonth);
     return true;
-  });
+  }), [records, reportWeek, reportMonth]);
 
-  const filteredAbsences = (Array.isArray(absences) ? absences : []).filter(a => {
+  const filteredAbsences = useMemo(() => (Array.isArray(absences) ? absences : []).filter(a => {
     if (reportWeek) return isDateInWeek(a.date, reportWeek);
     if (reportMonth) return a.date.startsWith(reportMonth);
     return true;
-  });
+  }), [absences, reportWeek, reportMonth]);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
