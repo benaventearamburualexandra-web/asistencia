@@ -92,7 +92,7 @@ export default function App() {
   const lastScannedRef = useRef<{ id: string, time: number }>({ id: '', time: 0 });
   const [reportMonth, setReportMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [reportWeek, setReportWeek] = useState<string>(''); // Optional week filter
-  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking'>('checking');
+  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking' | 'reconnecting'>('checking');
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -247,46 +247,58 @@ export default function App() {
     }, 2000);
 
     try {
-      const [tRes, rRes, aRes, hRes, admRes] = await Promise.all([
+      const responses = await Promise.allSettled([
         fetch('/api/teachers'),
         fetch('/api/report'),
         fetch('/api/absences'),
-        fetch('/api/health').catch(() => ({ ok: false, json: () => null })),
+        fetch('/api/health'),
         fetch('/api/admins')
-      ]).finally(() => {
-        clearTimeout(wakeupTimer);
-        setIsWakingUp(false);
-      });
+      ]);
+
+      clearTimeout(wakeupTimer);
+      setIsWakingUp(false);
       
       // Helper to safely parse JSON
-      const safeJson = async (res: Response) => {
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
+      const safeJson = async (resPromise: PromiseSettledResult<Response>) => {
+        if (resPromise.status === 'fulfilled' && resPromise.value.ok) {
+          const contentType = resPromise.value.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              return await resPromise.value.json();
+            } catch (e) {
+              console.error('Error parsing JSON:', e);
+              return null;
+            }
+          }
+        } else if (resPromise.status === 'rejected') {
           try {
-            return await res.json();
-          } catch (e) {
-            console.error('Error parsing JSON:', e);
-            return null;
+            return await resPromise.reason.json(); // Intenta leer el error del cuerpo
+          } catch (e) { return null; }
           }
         }
         return null;
       };
 
-      if (hRes.ok) {
-        const health = await safeJson(hRes);
-        setDbStatus(health && health.status === 'ok' ? 'connected' : 'error');
-        setDbErrorMessage(null);
+      const hResPromise = responses[3];
+      if (hResPromise.status === 'fulfilled' && hResPromise.value.ok) {
+        const health = await safeJson(hResPromise);
+        if (health && health.status === 'ok') {
+          setDbStatus(health.db === 'connected' ? 'connected' : 'reconnecting'); // Usa health.db status
+          setDbErrorMessage(null);
+        } else {
+          setDbStatus('error');
+          setDbErrorMessage(health && health.message ? health.message : 'Error de conexión con el servidor');
+        }
       } else {
-        const health = await safeJson(hRes);
         setDbStatus('error');
-        setDbErrorMessage(health && health.message ? health.message : 'Error de conexión con el servidor');
+        setDbErrorMessage('Error de conexión con el servidor (Health check fallido)');
       }
 
       const [tData, rData, aData, admData] = await Promise.all([
-        safeJson(tRes),
-        safeJson(rRes),
-        safeJson(aRes),
-        safeJson(admRes)
+        safeJson(responses[0]),
+        safeJson(responses[1]),
+        safeJson(responses[2]),
+        safeJson(responses[4])
       ]);
 
       setTeachers(Array.isArray(tData) ? tData : []);
@@ -294,8 +306,15 @@ export default function App() {
       setAbsences(Array.isArray(aData) ? aData : []);
       setAdmins(Array.isArray(admData) ? admData : []);
 
-      if (!tRes.ok || !rRes.ok || !aRes.ok) {
+      // Verifica si alguna de las llamadas críticas falló
+      if (responses[0].status === 'rejected' || responses[1].status === 'rejected' || responses[2].status === 'rejected') {
+        setDbErrorMessage(null);
         toast.error('Error al cargar algunos datos de la base de datos');
+      } else {
+        // Si todas las promesas se cumplieron, pero alguna no fue 'ok', también es un error
+        if (!responses[0].value?.ok || !responses[1].value?.ok || !responses[2].value?.ok) {
+          toast.error('Error al cargar algunos datos de la base de datos');
+        }
       }
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -703,7 +722,7 @@ export default function App() {
     <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
       <Toaster position="top-center" />
       
-      {isWakingUp && dbStatus === 'checking' && (
+      {isWakingUp && (dbStatus === 'checking' || dbStatus === 'reconnecting') && (
         <div className="fixed inset-0 z-[200] bg-indigo-600 flex flex-col items-center justify-center text-white p-6">
           <Loader2 className="animate-spin mb-4" size={48} />
           <h2 className="text-2xl font-bold mb-2">Despertando el sistema...</h2>
@@ -791,7 +810,7 @@ export default function App() {
           <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
             <div className={`w-2 h-2 rounded-full ${
               dbStatus === 'connected' ? 'bg-green-500' : 
-              dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+              dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'
             }`} />
             {dbStatus === 'connected' ? 'Base de Datos Conectada' : 
              dbStatus === 'error' ? (dbErrorMessage || 'Error de Conexión') : 'Verificando...'}

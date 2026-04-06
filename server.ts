@@ -97,8 +97,12 @@ async function initDb() {
       return; // Éxito, salimos del bucle
     } catch (err) {
       retries--;
-      console.error("❌ Error de conexión:", err instanceof Error ? err.message : err);
-      if (retries > 0) await new Promise(res => setTimeout(res, 3000)); // Esperar 3s antes de reintentar
+      console.error(`❌ Error de conexión o inicialización de DB: ${err instanceof Error ? err.message : err}. Reintentando...`);
+      if (retries > 0) await new Promise(res => setTimeout(res, 5000)); // Esperar 5s antes de reintentar
+      else {
+        console.error("❌ Fallaron todos los intentos de conexión/inicialización de DB.");
+        throw new Error(`Failed to connect or initialize database after multiple retries: ${err instanceof Error ? err.message : err}`);
+      }
     }
   }
 }
@@ -111,13 +115,26 @@ async function startServer() {
 
   // Health check inmediato para que Render no falle el despliegue
   app.get("/api/health", async (req, res) => {
-    // Intentamos una consulta rápida para verificar salud de DB sin bloquear
-    const dbCheck = await pool.query("SELECT 1").catch(() => null);
-    res.json({ 
-      status: "ok", 
-      db: dbCheck ? "connected" : "reconnecting",
-      uptime: Math.floor(process.uptime()) + "s"
-    });
+    try {
+      // Intentamos una consulta rápida para verificar salud de DB
+      const client = await pool.connect();
+      await client.query("SELECT 1");
+      client.release();
+      res.json({ 
+        status: "ok", 
+        db: "connected",
+        uptime: Math.floor(process.uptime()) + "s",
+        message: "Server and database are ready"
+      });
+    } catch (error) {
+      console.error("🚨 Health check failed: Database not connected.", error instanceof Error ? error.message : error);
+      res.status(500).json({ 
+        status: "error", 
+        db: "disconnected",
+        uptime: Math.floor(process.uptime()) + "s",
+        message: "Database connection failed"
+      });
+    }
   });
 
   // Rutas de Administración
