@@ -82,6 +82,16 @@ async function initDb() {
         await client.query("INSERT INTO teachers (id, name) VALUES ('DOC-001', 'Juan Pérez'), ('DOC-002', 'María García')");
       }
 
+      // Crear administrador por defecto si no existe ninguno
+      const { rows: adminCount } = await client.query("SELECT COUNT(*) as count FROM admins");
+      if (parseInt(adminCount[0].count) === 0) {
+        await client.query(
+          "INSERT INTO admins (username, password, name) VALUES ($1, $2, $3)",
+          ["admin", "admin123", "Administrador Principal"]
+        );
+        console.log("✅ Usuario administrador creado por defecto (admin / admin123)");
+      }
+
       client.release();
       return; // Éxito, salimos del bucle
     } catch (err) {
