@@ -51,7 +51,9 @@ async function initDb() {
       await client.query(`
         CREATE TABLE IF NOT EXISTS teachers (
           id TEXT PRIMARY KEY,
-          name TEXT NOT NULL
+          first_name TEXT NOT NULL,
+          last_name TEXT NOT NULL,
+          specialty TEXT NOT NULL
         );
         
         CREATE TABLE IF NOT EXISTS attendance (
@@ -80,7 +82,10 @@ async function initDb() {
       // Seed default data if needed
       const { rows } = await client.query("SELECT COUNT(*) as count FROM teachers");
       if (parseInt(rows[0].count) === 0) {
-        await client.query("INSERT INTO teachers (id, name) VALUES ('DOC-001', 'Juan Pérez'), ('DOC-002', 'María García')");
+        await client.query(`
+          INSERT INTO teachers (id, first_name, last_name, specialty) 
+          VALUES ('DOC-001', 'Juan', 'Pérez', 'Matemática'), ('DOC-002', 'María', 'García', 'Comunicación')
+        `);
       }
 
       // Crear administrador por defecto si no existe ninguno
@@ -194,7 +199,7 @@ async function startServer() {
       processingLocks.add(lockKey);
 
       // 1. Validar si el docente existe y obtener su nombre
-      const teacherRes = await pool.query("SELECT name FROM teachers WHERE id = $1", [tid]);
+      const teacherRes = await pool.query("SELECT (first_name || ' ' || last_name) as name FROM teachers WHERE id = $1", [tid]);
       if (teacherRes.rows.length === 0) {
         return res.status(404).json({ error: `El ID "${tid}" no está registrado en el sistema.` });
       }
@@ -206,6 +211,31 @@ async function startServer() {
       const date = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).format(now);
       // Usamos en-GB para forzar formato 24h (HH:mm:ss) y evitar problemas de AM/PM
       const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone }).format(now);
+
+      // --- VALIDACIÓN DE DUPLICADOS ---
+      // Buscamos el último registro de este docente, hoy y del mismo tipo
+      const lastMark = await pool.query(
+        "SELECT time FROM attendance WHERE teacher_id = $1 AND date = $2 AND type = $3 ORDER BY time DESC LIMIT 1",
+        [tid, date, type]
+      );
+
+      if (lastMark.rows.length > 0) {
+        const [lH, lM, lS] = lastMark.rows[0].time.split(':').map(Number);
+        const currentTimeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone }).format(now);
+        const [cH, cM, cS] = currentTimeStr.split(':').map(Number);
+        
+        // Calculamos la diferencia en segundos
+        const diffSeconds = (cH * 3600 + cM * 60 + cS) - (lH * 3600 + lM * 60 + lS);
+        const COOLDOWN_MINS = parseInt(process.env.ATTENDANCE_COOLDOWN || "5");
+        
+        if (diffSeconds < (COOLDOWN_MINS * 60) && diffSeconds >= 0) {
+          const wait = Math.ceil(COOLDOWN_MINS - (diffSeconds / 60));
+          return res.status(400).json({ 
+            error: `Ya marcaste tu ${type}. Por favor, espera ${wait} minuto(s) para volver a registrar.` 
+          });
+        }
+      }
+      // --------------------------------
 
       await pool.query(
         "INSERT INTO attendance (teacher_id, type, date, time) VALUES ($1, $2, $3, $4)",
@@ -244,7 +274,7 @@ async function startServer() {
 
       // 1. Obtener datos de asistencia del mes pasado
       const attendance = await pool.query(`
-        SELECT t.name as teacher_name, a.teacher_id, a.type, a.date, a.time 
+        SELECT (t.first_name || ' ' || t.last_name) as teacher_name, a.teacher_id, a.type, a.date, a.time 
         FROM attendance a 
         JOIN teachers t ON a.teacher_id = t.id
         WHERE a.date LIKE $1
@@ -253,7 +283,7 @@ async function startServer() {
 
       // 2. Obtener faltas del mes pasado
       const absences = await pool.query(`
-        SELECT t.name as teacher_name, ab.teacher_id, ab.status, ab.date, ab.reason 
+        SELECT (t.first_name || ' ' || t.last_name) as teacher_name, ab.teacher_id, ab.status, ab.date, ab.reason 
         FROM absences ab 
         JOIN teachers t ON ab.teacher_id = t.id
         WHERE ab.date LIKE $1
@@ -316,7 +346,7 @@ async function startServer() {
   app.get("/api/report", async (req, res) => {
     try {
       const { rows } = await pool.query(`
-        SELECT a.id, t.name as teacher_name, a.teacher_id, a.type, a.date, a.time 
+        SELECT a.id, (t.first_name || ' ' || t.last_name) as teacher_name, a.teacher_id, a.type, a.date, a.time 
         FROM attendance a 
         JOIN teachers t ON a.teacher_id = t.id
         ORDER BY a.id DESC
@@ -330,9 +360,12 @@ async function startServer() {
   // Actualizar un docente
   app.put("/api/teachers/:id", async (req, res) => {
     const { id } = req.params;
-    const { name } = req.body;
+    const { first_name, last_name, specialty } = req.body;
     try {
-      await pool.query("UPDATE teachers SET name = $1 WHERE id = $2", [name, id]);
+      await pool.query(
+        "UPDATE teachers SET first_name = $1, last_name = $2, specialty = $3 WHERE id = $4", 
+        [first_name, last_name, specialty, id]
+      );
       res.json({ success: true });
     } catch (e) {
       res.status(500).json({ error: "Error al actualizar docente" });
@@ -366,9 +399,12 @@ async function startServer() {
 
   // Add a new teacher (Manual)
   app.post("/api/teachers", async (req, res) => {
-    const { id, name } = req.body;
+    const { id, first_name, last_name, specialty } = req.body;
     try {
-      await pool.query("INSERT INTO teachers (id, name) VALUES ($1, $2)", [id, name]);
+      await pool.query(
+        "INSERT INTO teachers (id, first_name, last_name, specialty) VALUES ($1, $2, $3, $4)", 
+        [id, first_name, last_name, specialty]
+      );
       res.json({ success: true });
     } catch (e) {
       res.status(400).json({ error: "El ID ya existe o error en la base de datos" });
@@ -379,7 +415,7 @@ async function startServer() {
   app.get("/api/absences", async (req, res) => {
     try {
       const { rows } = await pool.query(`
-        SELECT a.*, t.name as teacher_name 
+        SELECT a.*, (t.first_name || ' ' || t.last_name) as teacher_name 
         FROM absences a 
         JOIN teachers t ON a.teacher_id = t.id
         ORDER BY a.date DESC

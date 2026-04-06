@@ -29,7 +29,9 @@ import * as XLSX from 'xlsx';
 
 interface Teacher {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  specialty: string;
 }
 
 interface AttendanceRecord {
@@ -80,7 +82,7 @@ export default function App() {
   const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
-  const [newTeacher, setNewTeacher] = useState({ id: '', name: '' });
+  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '' });
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '', name: '' });
@@ -272,7 +274,7 @@ export default function App() {
       if (hResPromise.status === 'fulfilled' && hResPromise.value.ok) {
         const health = await safeJson(hResPromise);
         if (health && health.status === 'ok') {
-          setDbStatus(health.db === 'connected' ? 'connected' : 'reconnecting'); // Usa health.db status
+          setDbStatus(health.db === 'connected' || health.status === 'ok' ? 'connected' : 'reconnecting');
           setDbErrorMessage(null);
         } else {
           setDbStatus('error');
@@ -359,7 +361,7 @@ export default function App() {
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     const teacherToSave = { ...newTeacher };
-    if (!teacherToSave.id || !teacherToSave.name) return;
+    if (!teacherToSave.id || !teacherToSave.first_name || !teacherToSave.last_name) return;
 
     try {
       const response = await fetch('/api/teachers', {
@@ -368,9 +370,13 @@ export default function App() {
         body: JSON.stringify(teacherToSave),
       });
       if (response.ok) {
-        toast.success(`Docente ${teacherToSave.name} registrado con éxito`);
-        setSelectedTeacherQR(teacherToSave); // Muestra el QR inmediatamente después de guardar
-        setNewTeacher({ id: '', name: '' });
+        toast.success(`Docente ${teacherToSave.first_name} registrado con éxito`);
+        // Para mostrar el QR necesitamos el objeto Teacher completo
+        setSelectedTeacherQR({
+          ...teacherToSave,
+          // Para propósitos de visualización en el modal del QR
+        } as Teacher);
+        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '' });
         setShowAddTeacher(false);
         fetchData();
       } else {
@@ -390,7 +396,11 @@ export default function App() {
       const response = await fetch(`/api/teachers/${editingTeacher.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editingTeacher.name }),
+        body: JSON.stringify({ 
+          first_name: editingTeacher.first_name, 
+          last_name: editingTeacher.last_name, 
+          specialty: editingTeacher.specialty 
+        }),
       });
       if (response.ok) {
         toast.success('Docente actualizado');
@@ -466,7 +476,7 @@ export default function App() {
         ctx.fillStyle = 'black';
         ctx.font = 'bold 20px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(selectedTeacherQR.name, canvas.width / 2, 30);
+        ctx.fillText(`${selectedTeacherQR.first_name} ${selectedTeacherQR.last_name}`, canvas.width / 2, 30);
         ctx.font = '14px monospace';
         ctx.fillText(selectedTeacherQR.id, canvas.width / 2, 55);
         
@@ -476,7 +486,7 @@ export default function App() {
         const pngUrl = canvas.toDataURL('image/png');
         const downloadLink = document.createElement('a');
         downloadLink.href = pngUrl;
-        downloadLink.download = `QR_${selectedTeacherQR.name.replace(/\s+/g, '_')}.png`;
+        downloadLink.download = `QR_${selectedTeacherQR.last_name}_${selectedTeacherQR.first_name}.png`;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
@@ -491,7 +501,7 @@ export default function App() {
     
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      toast.error('Por favor permite las ventanas emergentes para imprimir');
+      toast.error('Por favor permite las ventanas emergentes');
       return;
     }
 
@@ -503,7 +513,7 @@ export default function App() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Imprimir QR - ${selectedTeacherQR.name}</title>
+          <title>Imprimir QR - ${selectedTeacherQR.first_name} ${selectedTeacherQR.last_name}</title>
           <style>
             body { 
               display: flex; 
@@ -530,7 +540,7 @@ export default function App() {
         </head>
         <body>
           <div class="container">
-            <h1>${selectedTeacherQR.name}</h1>
+            <h1>${selectedTeacherQR.first_name} ${selectedTeacherQR.last_name}</h1>
             <p>ID: ${selectedTeacherQR.id}</p>
             ${svgData}
           </div>
@@ -1010,7 +1020,8 @@ export default function App() {
                           <QrCode size={20} />
                         </button>
                       </div>
-                      <h3 className="font-bold text-lg leading-tight mb-1">{teacher.name}</h3>
+                      <h3 className="font-bold text-lg leading-tight mb-1">{teacher.first_name} {teacher.last_name}</h3>
+                      <p className="text-sm text-indigo-600 font-semibold mb-2">{teacher.specialty}</p>
                       <p className="text-xs font-mono text-gray-400 uppercase tracking-widest">{teacher.id}</p>
                       
                       <div className="mt-6 pt-6 border-t border-gray-50 flex justify-end gap-2">
@@ -1377,7 +1388,7 @@ export default function App() {
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                   >
                     <option value="">Seleccionar Docente</option>
-                    {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {(Array.isArray(teachers) ? teachers : []).map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1490,12 +1501,30 @@ export default function App() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombre Completo</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
                   <input 
-                    type="text" required value={newTeacher.name}
-                    onChange={e => setNewTeacher({...newTeacher, name: e.target.value})}
+                    type="text" required value={newTeacher.first_name}
+                    onChange={e => setNewTeacher({...newTeacher, first_name: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Ej: Juan Pérez"
+                    placeholder="Ej: Juan"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Apellidos</label>
+                  <input 
+                    type="text" required value={newTeacher.last_name}
+                    onChange={e => setNewTeacher({...newTeacher, last_name: e.target.value})}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Ej: Pérez"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
+                  <input 
+                    type="text" required value={newTeacher.specialty}
+                    onChange={e => setNewTeacher({...newTeacher, specialty: e.target.value})}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                    placeholder="Ej: Matemática"
                   />
                 </div>
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
@@ -1529,10 +1558,26 @@ export default function App() {
                   <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombre Completo</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
                   <input 
-                    type="text" required value={editingTeacher.name}
-                    onChange={e => setEditingTeacher({...editingTeacher, name: e.target.value})}
+                    type="text" required value={editingTeacher.first_name}
+                    onChange={e => setEditingTeacher({...editingTeacher, first_name: e.target.value})}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Apellidos</label>
+                  <input 
+                    type="text" required value={editingTeacher.last_name}
+                    onChange={e => setEditingTeacher({...editingTeacher, last_name: e.target.value})}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
+                  <input 
+                    type="text" required value={editingTeacher.specialty}
+                    onChange={e => setEditingTeacher({...editingTeacher, specialty: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                   />
                 </div>
@@ -1560,7 +1605,7 @@ export default function App() {
               </button>
               
               <div className="mb-8">
-                <h2 className="text-2xl font-extrabold mb-2">{selectedTeacherQR.name}</h2>
+                <h2 className="text-2xl font-extrabold mb-2">{selectedTeacherQR.first_name} {selectedTeacherQR.last_name}</h2>
                 <p className="text-xs font-mono text-gray-400 uppercase tracking-widest">{selectedTeacherQR.id}</p>
               </div>
 
