@@ -361,7 +361,11 @@ export default function App() {
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     const teacherToSave = { ...newTeacher };
-    if (!teacherToSave.id || !teacherToSave.first_name || !teacherToSave.last_name) return;
+    
+    if (!teacherToSave.id || !teacherToSave.first_name || !teacherToSave.last_name || !teacherToSave.specialty) {
+      toast.error('Por favor, completa todos los campos obligatorios');
+      return;
+    }
 
     try {
       const response = await fetch('/api/teachers', {

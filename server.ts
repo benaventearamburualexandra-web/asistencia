@@ -55,6 +55,7 @@ async function initDb() {
           last_name TEXT NOT NULL,
           specialty TEXT NOT NULL
         );
+        ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
         
         CREATE TABLE IF NOT EXISTS attendance (
           id SERIAL PRIMARY KEY,
@@ -63,6 +64,7 @@ async function initDb() {
           date TEXT,
           time TEXT
         );
+        ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
   
         CREATE TABLE IF NOT EXISTS absences (
           id SERIAL PRIMARY KEY,
@@ -71,12 +73,14 @@ async function initDb() {
           status TEXT,
           reason TEXT
         );
+        ALTER TABLE absences ENABLE ROW LEVEL SECURITY;
   
         CREATE TABLE IF NOT EXISTS admins (
           username TEXT PRIMARY KEY,
           password TEXT NOT NULL,
           name TEXT NOT NULL
         );
+        ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
       `);
   
       // Seed default data if needed
@@ -98,7 +102,6 @@ async function initDb() {
         console.log("✅ Usuario administrador creado por defecto (admin / admin123)");
       }
 
-      return; // Éxito, salimos del bucle
     } catch (err) {
       retries--;
       console.error(`❌ Error de conexión o inicialización de DB: ${err instanceof Error ? err.message : err}. Reintentando...`);
@@ -406,8 +409,9 @@ async function startServer() {
         [id, first_name, last_name, specialty]
       );
       res.json({ success: true });
-    } catch (e) {
-      res.status(400).json({ error: "El ID ya existe o error en la base de datos" });
+    } catch (e: any) {
+      console.error("❌ Error al agregar docente:", e.message);
+      res.status(400).json({ error: `Error: ${e.message.includes('unique') ? 'El DNI ya está registrado' : 'Error en la base de datos'}` });
     }
   });
 
