@@ -30,7 +30,8 @@ const pool = new Pool({
   max: 20, // Aumentamos conexiones para evitar bloqueos
   min: 2,  // Mantenemos conexiones mínimas abiertas
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000, // Aumentamos a 10s para dar tiempo a Supabase a "despertar"
+  connectionTimeoutMillis: 20000, // Aumentamos a 20s para mayor tolerancia en el arranque inicial
+  maxUses: 7500, // Ayuda a refrescar conexiones y evitar fugas de memoria
 });
 
 // Manejo de errores de conexión para evitar que el servidor se cuelgue
@@ -109,11 +110,13 @@ async function startServer() {
   app.use(express.json());
 
   // Health check inmediato para que Render no falle el despliegue
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", async (req, res) => {
+    // Intentamos una consulta rápida para verificar salud de DB sin bloquear
+    const dbCheck = await pool.query("SELECT 1").catch(() => null);
     res.json({ 
       status: "ok", 
-      uptime: process.uptime(),
-      message: "Server is running"
+      db: dbCheck ? "connected" : "reconnecting",
+      uptime: Math.floor(process.uptime()) + "s"
     });
   });
 
@@ -414,12 +417,12 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Al estar el servidor en dist/server.js, __dirname es la carpeta dist
-    const distPath = path.resolve(__dirname);
+    // Usar CWD (Current Working Directory) es más seguro en Render para encontrar la carpeta dist
+    const distPath = path.resolve(process.cwd(), "dist");
     
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, { maxAge: '1d' })); // Cache para velocidad
     app.get("*", (req, res) => {
-      res.sendFile(path.resolve(distPath, "index.html"));
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
