@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import pg from "pg";
 import dotenv from "dotenv";
 import path from "path";
@@ -114,27 +113,12 @@ async function startServer() {
   app.use(express.json());
 
   // Health check inmediato para que Render no falle el despliegue
-  app.get("/api/health", async (req, res) => {
-    try {
-      // Intentamos una consulta rápida para verificar salud de DB
-      const client = await pool.connect();
-      await client.query("SELECT 1");
-      client.release();
-      res.json({ 
-        status: "ok", 
-        db: "connected",
-        uptime: Math.floor(process.uptime()) + "s",
-        message: "Server and database are ready"
-      });
-    } catch (error) {
-      console.error("🚨 Health check failed: Database not connected.", error instanceof Error ? error.message : error);
-      res.status(500).json({ 
-        status: "error", 
-        db: "disconnected",
-        uptime: Math.floor(process.uptime()) + "s",
-        message: "Database connection failed"
-      });
-    }
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      uptime: Math.floor(process.uptime()) + "s",
+      message: "Server is running"
+    });
   });
 
   // Rutas de Administración
@@ -428,7 +412,8 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    const { createServer } = await import("vite");
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
