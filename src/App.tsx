@@ -953,12 +953,12 @@ export default function App() {
                           className="max-w-md mx-auto space-y-6"
                         >
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Identificación del Docente</label>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Número de DNI / Documento</label>
                             <input
                               type="text"
                               value={teacherId}
                               onChange={(e) => setTeacherId(e.target.value)}
-                              placeholder="Ej: DOC-001"
+                              placeholder="Ej: 70654321"
                               className="w-full px-8 py-5 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-indigo-500 outline-none transition-all text-2xl font-mono text-center"
                               autoFocus
                             />
@@ -1492,15 +1492,6 @@ export default function App() {
               </div>
               <form onSubmit={handleAddTeacher} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">ID Único (DNI/Código)</label>
-                  <input 
-                    type="text" required value={newTeacher.id}
-                    onChange={e => setNewTeacher({...newTeacher, id: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono"
-                    placeholder="DOC-001"
-                  />
-                </div>
-                <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
                   <input 
                     type="text" required value={newTeacher.first_name}
@@ -1516,6 +1507,15 @@ export default function App() {
                     onChange={e => setNewTeacher({...newTeacher, last_name: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                     placeholder="Ej: Pérez"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
+                  <input 
+                    type="text" required value={newTeacher.id}
+                    onChange={e => setNewTeacher({...newTeacher, id: e.target.value})}
+                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono"
+                    placeholder="Ej: 70654321"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1554,10 +1554,6 @@ export default function App() {
               </div>
               <form onSubmit={handleUpdateTeacher} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">ID (No se puede cambiar)</label>
-                  <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
-                </div>
-                <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
                   <input 
                     type="text" required value={editingTeacher.first_name}
@@ -1572,6 +1568,10 @@ export default function App() {
                     onChange={e => setEditingTeacher({...editingTeacher, last_name: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
+                  <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
