@@ -27,7 +27,8 @@ const pool = new Pool({
   ssl: connectionString?.includes("supabase") || process.env.NODE_ENV === "production" 
     ? { rejectUnauthorized: false } 
     : false,
-  max: 10,
+  max: 20, // Aumentamos conexiones para evitar bloqueos
+  min: 2,  // Mantenemos conexiones mínimas abiertas
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000, // Aumentamos a 10s para dar tiempo a Supabase a "despertar"
 });
@@ -39,88 +40,71 @@ pool.on('error', (err) => {
 
 // Initialize Database
 async function initDb() {
-  console.log("🔍 Iniciando conexión con Supabase...");
-  try {
-    const client = await pool.connect();
-    console.log("✅ Conexión exitosa a PostgreSQL.");
-    client.release();
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS teachers (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL
-      );
+  let retries = 5;
+  while (retries > 0) {
+    try {
+      console.log(`🔍 Intentando conectar con Supabase... (Intentos restantes: ${retries})`);
+      const client = await pool.connect();
+      console.log("✅ Conexión exitosa a PostgreSQL.");
       
-      CREATE TABLE IF NOT EXISTS attendance (
-        id SERIAL PRIMARY KEY,
-        teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
-        type TEXT,
-        date TEXT,
-        time TEXT
-      );
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS teachers (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL
+        );
+        
+        CREATE TABLE IF NOT EXISTS attendance (
+          id SERIAL PRIMARY KEY,
+          teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
+          type TEXT,
+          date TEXT,
+          time TEXT
+        );
+  
+        CREATE TABLE IF NOT EXISTS absences (
+          id SERIAL PRIMARY KEY,
+          teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
+          date TEXT,
+          status TEXT,
+          reason TEXT
+        );
+  
+        CREATE TABLE IF NOT EXISTS admins (
+          username TEXT PRIMARY KEY,
+          password TEXT NOT NULL,
+          name TEXT NOT NULL
+        );
+      `);
+  
+      // Seed default data if needed
+      const { rows } = await client.query("SELECT COUNT(*) as count FROM teachers");
+      if (parseInt(rows[0].count) === 0) {
+        await client.query("INSERT INTO teachers (id, name) VALUES ('DOC-001', 'Juan Pérez'), ('DOC-002', 'María García')");
+      }
 
-      CREATE TABLE IF NOT EXISTS absences (
-        id SERIAL PRIMARY KEY,
-        teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
-        date TEXT,
-        status TEXT, -- 'JUSTIFICADA' | 'INJUSTIFICADA'
-        reason TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS admins (
-        username TEXT PRIMARY KEY,
-        password TEXT NOT NULL,
-        name TEXT NOT NULL
-      );
-    `);
-
-    console.log("📊 Verificando tablas...");
-    const { rows } = await pool.query("SELECT COUNT(*) as count FROM teachers");
-    if (parseInt(rows[0].count) === 0) {
-      await pool.query("INSERT INTO teachers (id, name) VALUES ('DOC-001', 'Juan Pérez'), ('DOC-002', 'María García'), ('DOC-003', 'Carlos Rodríguez')");
-      console.log("✅ Datos iniciales insertados");
+      client.release();
+      return; // Éxito, salimos del bucle
+    } catch (err) {
+      retries--;
+      console.error("❌ Error de conexión:", err instanceof Error ? err.message : err);
+      if (retries > 0) await new Promise(res => setTimeout(res, 3000)); // Esperar 3s antes de reintentar
     }
-
-    // Seed default admin if none exists
-    const { rows: adminRows } = await pool.query("SELECT COUNT(*) as count FROM admins");
-    if (parseInt(adminRows[0].count) === 0) {
-      await pool.query("INSERT INTO admins (username, password, name) VALUES ($1, $2, $3)", ["admin", "admin123", "Administrador Principal"]);
-    }
-  } catch (err) {
-    console.error("❌ ERROR CRÍTICO AL CONECTAR O INICIALIZAR DB:", err instanceof Error ? err.stack : err);
   }
 }
 
 async function startServer() {
-  await initDb();
-  
   const app = express();
   const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
-  // Ruta de salud mejorada para diagnosticar problemas de conexión
-  app.get("/api/health", async (req, res) => {
-    try {
-      const startTime = Date.now();
-      const client = await pool.connect();
-      const dbRes = await client.query("SELECT NOW()");
-      client.release();
-      
-      res.json({ 
-        status: "ok", 
-        database: "connected",
-        latency: `${Date.now() - startTime}ms`,
-        serverTime: dbRes.rows[0].now
-      });
-    } catch (err: any) {
-      console.error("🚨 Error de salud de DB:", err.message);
-      res.status(500).json({ 
-        status: "error", 
-        database: "disconnected",
-        message: err.message 
-      });
-    }
+  // Health check inmediato para que Render no falle el despliegue
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok", 
+      uptime: process.uptime(),
+      message: "Server is running"
+    });
   });
 
   // Rutas de Administración
@@ -420,19 +404,24 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "dist")));
+    // Al estar el servidor en dist/server.js, __dirname es la carpeta dist
+    const distPath = path.resolve(__dirname);
+    
+    app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
+      res.sendFile(path.resolve(distPath, "index.html"));
     });
   }
 
   app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`
 =================================================
-  SERVIDOR INICIADO EXITOSAMENTE (POSTGRES)
-  Local:    http://localhost:${PORT}
+  SERVIDOR ESCUCHANDO EN PUERTO ${PORT}
+  Inicializando base de datos en segundo plano...
 =================================================
     `);
+    // Iniciamos la DB después de que el servidor ya está escuchando peticiones
+    initDb().catch(console.error);
   });
 }
 

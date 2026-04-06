@@ -251,9 +251,12 @@ export default function App() {
         fetch('/api/teachers'),
         fetch('/api/report'),
         fetch('/api/absences'),
-        fetch('/api/health'),
+        fetch('/api/health').catch(() => ({ ok: false, json: () => null })),
         fetch('/api/admins')
-      ]);
+      ]).finally(() => {
+        clearTimeout(wakeupTimer);
+        setIsWakingUp(false);
+      });
       
       // Helper to safely parse JSON
       const safeJson = async (res: Response) => {
@@ -700,6 +703,14 @@ export default function App() {
     <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
       <Toaster position="top-center" />
       
+      {isWakingUp && dbStatus === 'checking' && (
+        <div className="fixed inset-0 z-[200] bg-indigo-600 flex flex-col items-center justify-center text-white p-6">
+          <Loader2 className="animate-spin mb-4" size={48} />
+          <h2 className="text-2xl font-bold mb-2">Despertando el sistema...</h2>
+          <p className="text-indigo-100 text-center">Los servicios gratuitos de Render y Supabase tardan unos segundos en iniciar tras inactividad.</p>
+        </div>
+      )}
+
       {/* Sidebar Navigation */}
       <nav className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-gray-200 flex flex-col h-auto md:h-screen sticky top-0 z-50">
         <div className="p-6 flex items-center gap-3">

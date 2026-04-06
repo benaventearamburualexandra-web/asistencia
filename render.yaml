@@ -17,7 +17,9 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
+      - key: SKIP_INSTALL_DEPS
+        value: false
       - key: PORT
         value: 3000
       - key: NODE_VERSION
-        value: 20.0.0
+        value: 20
