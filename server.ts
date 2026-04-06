@@ -29,7 +29,7 @@ const pool = new Pool({
   max: 20, // Aumentamos conexiones para evitar bloqueos
   min: 2,  // Mantenemos conexiones mínimas abiertas
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 20000, // Aumentamos a 20s para mayor tolerancia en el arranque inicial
+  connectionTimeoutMillis: 30000, // 30s para dar tiempo a Supabase a despertar
   maxUses: 7500, // Ayuda a refrescar conexiones y evitar fugas de memoria
 });
 
@@ -42,9 +42,10 @@ pool.on('error', (err) => {
 async function initDb() {
   let retries = 5;
   while (retries > 0) {
+    let client;
     try {
       console.log(`🔍 Intentando conectar con Supabase... (Intentos restantes: ${retries})`);
-      const client = await pool.connect();
+      client = await pool.connect();
       console.log("✅ Conexión exitosa a PostgreSQL.");
       
       await client.query(`
@@ -92,7 +93,6 @@ async function initDb() {
         console.log("✅ Usuario administrador creado por defecto (admin / admin123)");
       }
 
-      client.release();
       return; // Éxito, salimos del bucle
     } catch (err) {
       retries--;
@@ -102,6 +102,8 @@ async function initDb() {
         console.error("❌ Fallaron todos los intentos de conexión/inicialización de DB.");
         throw new Error(`Failed to connect or initialize database after multiple retries: ${err instanceof Error ? err.message : err}`);
       }
+    } finally {
+      if (client) client.release();
     }
   }
 }
@@ -134,7 +136,8 @@ async function startServer() {
       } else {
         res.status(401).json({ error: "Usuario o contraseña incorrectos" });
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error("❌ Error de autenticación:", err.message);
       res.status(500).json({ error: "Error en el servidor al autenticar" });
     }
   });

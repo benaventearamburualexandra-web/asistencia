@@ -259,22 +259,11 @@ export default function App() {
       setIsWakingUp(false);
       
       // Helper to safely parse JSON
-      const safeJson = async (resPromise: PromiseSettledResult<Response>) => {
+      const safeJson = async (resPromise: any) => {
         if (resPromise.status === 'fulfilled' && resPromise.value.ok) {
-          const contentType = resPromise.value.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            try {
-              return await resPromise.value.json();
-            } catch (e) {
-              console.error('Error parsing JSON:', e);
-              return null;
-            }
-          }
-        } else if (resPromise.status === 'rejected') {
           try {
-            return await resPromise.reason.json(); // Intenta leer el error del cuerpo
+            return await resPromise.value.json();
           } catch (e) { return null; }
-          }
         }
         return null;
       };
