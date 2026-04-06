@@ -223,16 +223,18 @@ async function startServer() {
       );
 
       if (lastMark.rows.length > 0) {
-        const [lH, lM, lS] = lastMark.rows[0].time.split(':').map(Number);
-        const currentTimeStr = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone }).format(now);
-        const [cH, cM, cS] = currentTimeStr.split(':').map(Number);
+        const lastTimeStr = lastMark.rows[0].time;
+        const [lH, lM, lS] = lastTimeStr.split(':').map(Number);
         
-        // Calculamos la diferencia en segundos
-        const diffSeconds = (cH * 3600 + cM * 60 + cS) - (lH * 3600 + lM * 60 + lS);
+        // Creamos objetos de fecha para comparar milisegundos reales
+        const lastMarkDate = new Date(now);
+        lastMarkDate.setHours(lH, lM, lS, 0);
+        
+        const diffMs = now.getTime() - lastMarkDate.getTime();
         const COOLDOWN_MINS = parseInt(process.env.ATTENDANCE_COOLDOWN || "5");
         
-        if (diffSeconds < (COOLDOWN_MINS * 60) && diffSeconds >= 0) {
-          const wait = Math.ceil(COOLDOWN_MINS - (diffSeconds / 60));
+        if (diffMs < (COOLDOWN_MINS * 60 * 1000) && diffMs >= 0) {
+          const wait = Math.ceil((COOLDOWN_MINS * 60 * 1000 - diffMs) / 60000);
           return res.status(400).json({ 
             error: `Ya marcaste tu ${type}. Por favor, espera ${wait} minuto(s) para volver a registrar.` 
           });

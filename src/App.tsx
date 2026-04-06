@@ -1496,39 +1496,43 @@ export default function App() {
               </div>
               <form onSubmit={handleAddTeacher} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
                   <input 
                     type="text" required value={newTeacher.first_name}
                     onChange={e => setNewTeacher({...newTeacher, first_name: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Ej: Juan"
+                    placeholder="Escribe los nombres"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Apellidos</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Apellidos</label>
                   <input 
                     type="text" required value={newTeacher.last_name}
                     onChange={e => setNewTeacher({...newTeacher, last_name: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Ej: Pérez"
+                    placeholder="Escribe los apellidos"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
                   <input 
                     type="text" required value={newTeacher.id}
-                    onChange={e => setNewTeacher({...newTeacher, id: e.target.value})}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9]/g, ''); // Solo permite números
+                      setNewTeacher({...newTeacher, id: val});
+                    }}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono"
                     placeholder="Ej: 70654321"
+                    maxLength={12}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Cargo o Especialidad</label>
                   <input 
                     type="text" required value={newTeacher.specialty}
                     onChange={e => setNewTeacher({...newTeacher, specialty: e.target.value})}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Ej: Matemática"
+                    placeholder="Ej: Docente de Primaria / Cargo administrativo"
                   />
                 </div>
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
