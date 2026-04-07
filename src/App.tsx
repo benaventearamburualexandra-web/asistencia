@@ -32,6 +32,7 @@ interface Teacher {
   first_name: string;
   last_name: string;
   specialty: string;
+  photo_url?: string;
 }
 
 interface AttendanceRecord {
@@ -82,7 +83,7 @@ export default function App() {
   const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
-  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '' });
+  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '' });
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '', name: '' });
@@ -292,17 +293,14 @@ export default function App() {
         safeJson(responses[4])
       ]);
 
-      setTeachers(Array.isArray(tData) ? tData : []);
-      setRecords(Array.isArray(rData) ? rData : []);
-      setAbsences(Array.isArray(aData) ? aData : []);
-      setAdmins(Array.isArray(admData) ? admData : []);
+      if (Array.isArray(tData)) setTeachers([...tData]);
+      if (Array.isArray(rData)) setRecords(rData);
+      if (Array.isArray(aData)) setAbsences(aData);
+      if (Array.isArray(admData)) setAdmins(admData);
 
-      // Verifica si alguna de las llamadas críticas falló
       if (responses[0].status === 'rejected' || responses[1].status === 'rejected' || responses[2].status === 'rejected') {
-        setDbErrorMessage(null);
-        toast.error('Error al cargar algunos datos de la base de datos');
+        toast.error('Error parcial al cargar datos de la base de datos');
       } else {
-        // Si todas las promesas se cumplieron, pero alguna no fue 'ok', también es un error
         if (!responses[0].value?.ok || !responses[1].value?.ok || !responses[2].value?.ok) {
           toast.error('Error al cargar algunos datos de la base de datos');
         }
@@ -360,35 +358,33 @@ export default function App() {
 
   const handleAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
-    const teacherToSave = { ...newTeacher };
+    const teacherToSave = { ...newTeacher, id: newTeacher.id.trim() };
     
     if (!teacherToSave.id || !teacherToSave.first_name || !teacherToSave.last_name || !teacherToSave.specialty) {
       toast.error('Por favor, completa todos los campos obligatorios');
       return;
     }
 
+    const loading = toast.loading('Guardando docente...');
     try {
       const response = await fetch('/api/teachers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(teacherToSave),
       });
+      const data = await response.json();
+      
       if (response.ok) {
-        toast.success(`Docente ${teacherToSave.first_name} registrado con éxito`);
-        // Para mostrar el QR necesitamos el objeto Teacher completo
-        setSelectedTeacherQR({
-          ...teacherToSave,
-          // Para propósitos de visualización en el modal del QR
-        } as Teacher);
-        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '' });
+        toast.success(`Docente registrado con éxito`, { id: loading });
+        setSelectedTeacherQR(data.teacher || teacherToSave as Teacher);
+        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '' });
         setShowAddTeacher(false);
-        fetchData();
+        await fetchData(false);
       } else {
-        const data = await response.json();
-        toast.error(data.error || 'Error');
+        toast.error(data.error || 'Error al guardar', { id: loading });
       }
     } catch (error) {
-      toast.error('Error de conexión');
+      toast.error('Error de conexión', { id: loading });
     }
   };
 
@@ -410,7 +406,7 @@ export default function App() {
         toast.success('Docente actualizado');
         setShowEditTeacher(false);
         setEditingTeacher(null);
-        fetchData();
+        await fetchData(false);
       } else {
         toast.error('Error al actualizar');
       }
@@ -437,9 +433,12 @@ export default function App() {
 
   function onScanSuccess(decodedText: string) {
     try {
+      // Evita procesar múltiples lecturas simultáneas
+      if (isSubmitting) return;
+
       const now = Date.now();
-      // Cooldown de 5 segundos para el mismo ID para evitar escaneos duplicados accidentales
-      if (lastScannedRef.current.id === decodedText && (now - lastScannedRef.current.time) < 5000) {
+      // Cooldown local de 10 segundos para el mismo QR para evitar ráfagas de la cámara
+      if (lastScannedRef.current.id === decodedText && (now - lastScannedRef.current.time) < 10000) {
         return;
       }
       
@@ -1013,9 +1012,17 @@ export default function App() {
                       className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all group"
                     >
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                          <Users size={24} />
-                        </div>
+                        {teacher.photo_url ? (
+                          <img 
+                            src={teacher.photo_url} 
+                            alt="Docente" 
+                            className="w-12 h-12 rounded-2xl object-cover border border-indigo-50"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                            <Users size={24} />
+                          </div>
+                        )}
                         <button
                           onClick={() => setSelectedTeacherQR(teacher)}
                           className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
@@ -1495,6 +1502,29 @@ export default function App() {
                 </button>
               </div>
               <form onSubmit={handleAddTeacher} className="space-y-6">
+                <div className="flex justify-center mb-4">
+                  <div className="relative group">
+                    <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                      {newTeacher.photo_url ? (
+                        <img src={newTeacher.photo_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <UserPlus className="text-gray-300" size={32} />
+                      )}
+                    </div>
+                    <input 
+                      type="file" accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setNewTeacher({...newTeacher, photo_url: reader.result as string});
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
                   <input 
@@ -1561,34 +1591,67 @@ export default function App() {
                 </button>
               </div>
               <form onSubmit={handleUpdateTeacher} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
-                  <input 
-                    type="text" required value={editingTeacher.first_name}
-                    onChange={e => setEditingTeacher({...editingTeacher, first_name: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                  />
+                <div className="flex justify-center mb-4">
+                  <div className="relative group">
+                    <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                      {editingTeacher.photo_url ? (
+                        <img src={editingTeacher.photo_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="text-gray-300" size={32} />
+                      )}
+                    </div>
+                    <input 
+                      type="file" accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setEditingTeacher({...editingTeacher, photo_url: reader.result as string});
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <div className="absolute -bottom-2 -right-2 bg-indigo-600 text-white p-2 rounded-xl shadow-lg">
+                      <Settings size={16} />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Apellidos</label>
-                  <input 
-                    type="text" required value={editingTeacher.last_name}
-                    onChange={e => setEditingTeacher({...editingTeacher, last_name: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                  />
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Nombre</label>
+                    <input 
+                      type="text" required value={editingTeacher.first_name}
+                      onChange={e => setEditingTeacher({...editingTeacher, first_name: e.target.value})}
+                      className="w-full px-5 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Apellido</label>
+                    <input 
+                      type="text" required value={editingTeacher.last_name}
+                      onChange={e => setEditingTeacher({...editingTeacher, last_name: e.target.value})}
+                      className="w-full px-5 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">DNI (No editable)</label>
+                    <input 
+                      type="text" disabled value={editingTeacher.id}
+                      className="w-full px-5 py-3 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Cargo</label>
+                    <input 
+                      type="text" required value={editingTeacher.specialty}
+                      onChange={e => setEditingTeacher({...editingTeacher, specialty: e.target.value})}
+                      className="w-full px-5 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
-                  <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
-                  <input 
-                    type="text" required value={editingTeacher.specialty}
-                    onChange={e => setEditingTeacher({...editingTeacher, specialty: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                  />
-                </div>
+
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
                   Actualizar Datos
                 </button>

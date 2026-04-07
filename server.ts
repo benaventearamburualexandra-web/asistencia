@@ -53,7 +53,8 @@ async function initDb() {
           id TEXT PRIMARY KEY,
           first_name TEXT NOT NULL,
           last_name TEXT NOT NULL,
-          specialty TEXT NOT NULL
+          specialty TEXT NOT NULL,
+          photo_url TEXT
         );
         ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
         
@@ -82,6 +83,9 @@ async function initDb() {
         );
         ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
       `);
+
+      // Asegurar que la columna existe si la tabla ya estaba creada
+      await client.query("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS photo_url TEXT");
   
       // Seed default data if needed
       const { rows } = await client.query("SELECT COUNT(*) as count FROM teachers");
@@ -120,7 +124,8 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
-  app.use(express.json());
+  // Aumentamos el límite para permitir el envío de fotos en Base64
+  app.use(express.json({ limit: '10mb' }));
 
   // Health check inmediato para que Render no falle el despliegue
   app.get("/api/health", (req, res) => {
@@ -224,17 +229,18 @@ async function startServer() {
 
       if (lastMark.rows.length > 0) {
         const lastTimeStr = lastMark.rows[0].time;
-        const [lH, lM, lS] = lastTimeStr.split(':').map(Number);
-        
-        // Creamos objetos de fecha para comparar milisegundos reales
-        const lastMarkDate = new Date(now);
-        lastMarkDate.setHours(lH, lM, lS, 0);
-        
-        const diffMs = now.getTime() - lastMarkDate.getTime();
+
+        // Convertimos HH:mm:ss a segundos totales para una comparación exacta
+        const toSeconds = (tStr: string) => {
+          const [h, m, s] = tStr.split(':').map(Number);
+          return h * 3600 + m * 60 + s;
+        };
+
+        const diffSeconds = toSeconds(time) - toSeconds(lastTimeStr);
         const COOLDOWN_MINS = parseInt(process.env.ATTENDANCE_COOLDOWN || "5");
-        
-        if (diffMs < (COOLDOWN_MINS * 60 * 1000) && diffMs >= 0) {
-          const wait = Math.ceil((COOLDOWN_MINS * 60 * 1000 - diffMs) / 60000);
+
+        if (diffSeconds < (COOLDOWN_MINS * 60) && diffSeconds >= 0) {
+          const wait = Math.ceil((COOLDOWN_MINS * 60 - diffSeconds) / 60);
           return res.status(400).json({ 
             error: `Ya marcaste tu ${type}. Por favor, espera ${wait} minuto(s) para volver a registrar.` 
           });
@@ -365,11 +371,11 @@ async function startServer() {
   // Actualizar un docente
   app.put("/api/teachers/:id", async (req, res) => {
     const { id } = req.params;
-    const { first_name, last_name, specialty } = req.body;
+    const { first_name, last_name, specialty, photo_url } = req.body;
     try {
       await pool.query(
-        "UPDATE teachers SET first_name = $1, last_name = $2, specialty = $3 WHERE id = $4", 
-        [first_name, last_name, specialty, id]
+        "UPDATE teachers SET first_name = $1, last_name = $2, specialty = $3, photo_url = $4 WHERE id = $5", 
+        [first_name, last_name, specialty, photo_url, id]
       );
       res.json({ success: true });
     } catch (e) {
@@ -404,16 +410,17 @@ async function startServer() {
 
   // Add a new teacher (Manual)
   app.post("/api/teachers", async (req, res) => {
-    const { id, first_name, last_name, specialty } = req.body;
+    const { id, first_name, last_name, specialty, photo_url } = req.body;
     try {
-      await pool.query(
-        "INSERT INTO teachers (id, first_name, last_name, specialty) VALUES ($1, $2, $3, $4)", 
-        [id, first_name, last_name, specialty]
+      const result = await pool.query(
+        "INSERT INTO teachers (id, first_name, last_name, specialty, photo_url) VALUES ($1, $2, $3, $4, $5) RETURNING *", 
+        [id, first_name, last_name, specialty, photo_url]
       );
-      res.json({ success: true });
+      res.json({ success: true, teacher: result.rows[0] });
     } catch (e: any) {
       console.error("❌ Error al agregar docente:", e.message);
-      res.status(400).json({ error: `Error: ${e.message.includes('unique') ? 'El DNI ya está registrado' : 'Error en la base de datos'}` });
+      const isUniqueError = e.message.includes('unique') || e.code === '23505';
+      res.status(400).json({ error: isUniqueError ? 'El DNI ya está registrado' : 'Error en la base de datos' });
     }
   });
 
@@ -466,8 +473,16 @@ async function startServer() {
   } else {
     // Usar CWD (Current Working Directory) es más seguro en Render para encontrar la carpeta dist
     const distPath = path.resolve(process.cwd(), "dist");
-    
-    app.use(express.static(distPath, { maxAge: '1d' })); // Cache para velocidad
+
+    // Configuramos el cache de forma inteligente: no cachear el index.html para asegurar actualizaciones
+    app.use(express.static(distPath, { 
+      maxAge: '1d',
+      setHeaders: (res, path) => {
+        if (path.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      }
+    }));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
