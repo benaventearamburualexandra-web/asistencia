@@ -130,18 +130,6 @@ export default function App() {
         return;
       }
 
-      // 2. Intentar "Despertar" la cámara con permisos explícitos
-      // Esto fuerza al navegador a mostrar el popup de permiso ANTES de inicializar el escáner
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
-      
-      // Cerramos el stream de prueba para que la librería tome el control
-      stream.getTracks().forEach(track => track.stop());
-      
-      // Pequeña pausa para que el hardware se libere
-      await new Promise(r => setTimeout(r, 300));
-
       // 3. Limpieza profunda
       if (scannerRef.current) {
         try {
