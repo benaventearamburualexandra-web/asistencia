@@ -98,8 +98,14 @@ export default function App() {
   const [reportWeek, setReportWeek] = useState<string>(''); // Optional week filter
   const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking' | 'reconnecting'>('checking');
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
+  const [isWrongPort, setIsWongPort] = useState(false);
 
   useEffect(() => {
+    // Verificar si el usuario entró por el puerto de Vite (5173) en lugar del puerto del servidor (3000)
+    if (window.location.port === '5173') {
+      setIsWongPort(true);
+      toast.error('Estás usando el puerto de desarrollo. Cambia a http://localhost:3000', { duration: 10000 });
+    }
     fetchData(true);
   }, []);
 
@@ -117,25 +123,24 @@ export default function App() {
     setIsCameraActive(false);
 
     try {
-      // 1. Verificación de Seguridad y Soporte
-      const isSecure = window.isSecureContext || 
-                       window.location.hostname === 'localhost' || 
-                       window.location.hostname === '127.0.0.1';
-
-      if (!isSecure) {
-        throw new Error("SECURITY_ERROR");
+      // 1. Validar Contexto Seguro (HTTPS o localhost)
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (!window.isSecureContext && !isLocal) {
+        setScannerError("SECURITY_ERROR");
+        return;
       }
 
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("NOT_SUPPORTED");
-      }
-
-      // 2. FORZAR PERMISO (Universal)
-      // Pedimos video de la forma más básica posible para que el navegador lance el popup de "Permitir"
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      // 2. Intentar "Despertar" la cámara con permisos explícitos
+      // Esto fuerza al navegador a mostrar el popup de permiso ANTES de inicializar el escáner
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
       
-      // Detenemos el stream de prueba inmediatamente para liberar el hardware
+      // Cerramos el stream de prueba para que la librería tome el control
       stream.getTracks().forEach(track => track.stop());
+      
+      // Pequeña pausa para que el hardware se libere
+      await new Promise(r => setTimeout(r, 300));
 
       // 3. Limpieza profunda
       if (scannerRef.current) {
@@ -279,12 +284,12 @@ export default function App() {
       const hResPromise = responses[3];
       if (hResPromise.status === 'fulfilled' && hResPromise.value.ok) {
         const health = await safeJson(hResPromise);
-        if (health && health.status === 'ok') {
-          setDbStatus(health.db === 'connected' || health.status === 'ok' ? 'connected' : 'reconnecting');
+        if (health && (health.status === 'ok' || health.db === 'connected')) {
+          setDbStatus('connected');
           setDbErrorMessage(null);
         } else {
           setDbStatus('error');
-          setDbErrorMessage(health && health.message ? health.message : 'Error de conexión con el servidor');
+          setDbErrorMessage(health?.message || 'Error de conexión con la Base de Datos');
         }
       } else {
         setDbStatus('error');

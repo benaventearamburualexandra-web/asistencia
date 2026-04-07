@@ -128,13 +128,22 @@ async function startServer() {
   // Aumentamos el límite para permitir el envío de fotos en Base64
   app.use(express.json({ limit: '10mb' }));
 
-  // Health check inmediato para que Render no falle el despliegue
-  app.get("/api/health", (req, res) => {
-    res.json({ 
-      status: "ok", 
-      uptime: Math.floor(process.uptime()) + "s",
-      message: "Server is running"
-    });
+  // Health check mejorado para verificar también la base de datos
+  app.get("/api/health", async (req, res) => {
+    try {
+      await pool.query('SELECT 1');
+      res.json({ 
+        status: "ok", 
+        db: "connected",
+        uptime: Math.floor(process.uptime()) + "s"
+      });
+    } catch (err) {
+      res.status(503).json({ 
+        status: "error", 
+        db: "disconnected",
+        message: "El servidor funciona pero no hay conexión a la base de datos"
+      });
+    }
   });
 
   // Rutas de Administración
