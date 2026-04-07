@@ -117,13 +117,25 @@ export default function App() {
     setIsCameraActive(false);
 
     try {
-      // 1. Forzar solicitud de permisos nativa para activar el hardware
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      });
-      stream.getTracks().forEach(track => track.stop());
+      // 1. Verificar si el contexto es seguro (HTTPS o localhost)
+      if (!window.isSecureContext && window.location.hostname !== 'localhost') {
+        throw new Error("SECURITY_ERROR: La cámara requiere una conexión segura (HTTPS).");
+      }
 
-      // 2. Limpieza de escáner previo
+      // 2. Forzar solicitud de permisos nativa con restricciones mínimas
+      // Intentamos primero sin especificar facingMode para asegurar que "despierte" cualquier cámara
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      
+      // Detenemos el stream inmediatamente para que la librería tome el control
+      stream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+
+      // Pequeña pausa para que el hardware se libere
+      await new Promise(r => setTimeout(r, 300));
+
+      // 3. Limpieza de escáner previo
       if (scannerRef.current) {
         try {
           if (scannerRef.current.isScanning) {
@@ -136,26 +148,39 @@ export default function App() {
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
 
-      const config = { 
-        fps: 15, 
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+      const config = {
+        fps: 10,
+        qrbox: (w: number, h: number) => {
+          const size = Math.min(w, h) * 0.7;
           return { width: size, height: size };
         },
-        aspectRatio: 1.0,
-        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+        aspectRatio: 1.0
       };
-      
+
       try {
+        // Intentar primero con la cámara trasera
         await html5QrCode.start(
           { facingMode: "environment" }, 
           config,
           onScanSuccess,
           onScanFailure
         );
-      } catch (err) {
-        // Fallback a cámara frontal/disponible
-        await html5QrCode.start({ facingMode: "user" }, config, onScanSuccess, onScanFailure);
+      } catch (envErr) {
+        console.warn("Fallo cámara trasera, intentando cualquier cámara disponible...", envErr);
+        
+        // Fallback: Obtener lista de cámaras y usar la primera que encontremos
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          await html5QrCode.start(
+            devices[0].id,
+            config,
+            onScanSuccess,
+            onScanFailure
+          );
+        } else {
+          // Si llegamos aquí, realmente no hay hardware detectable
+          throw new Error("NOT_FOUND: No se detectaron cámaras físicas.");
+        }
       }
       setIsCameraActive(true);
     } catch (err: any) {
@@ -167,6 +192,8 @@ export default function App() {
       
       if (errName.includes("notreadable") || errStr.includes("notreadable")) {
         errorMessage = "La cámara está siendo usada por otra aplicación o pestaña.";
+      } else if (errStr.includes("security_error")) {
+        errorMessage = "Error de seguridad: El escáner solo funciona mediante HTTPS o localhost. No funcionará usando la dirección IP directamente.";
       } else if (errName.includes("notallowed") || errStr.includes("notallowed") || errStr.includes("permission denied")) {
         errorMessage = "Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración de tu navegador (haz clic en el candado junto a la URL).";
       } else if (errName.includes("notfound") || errStr.includes("notfound")) {
