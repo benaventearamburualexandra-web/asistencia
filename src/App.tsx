@@ -117,22 +117,27 @@ export default function App() {
     setIsCameraActive(false);
 
     try {
-      // 1. Verificación de Seguridad (Indispensable para cámaras)
-      const isSecure = window.isSecureContext || window.location.hostname === 'localhost';
+      // 1. Verificación de Seguridad y Soporte
+      const isSecure = window.isSecureContext || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
+
       if (!isSecure) {
         throw new Error("SECURITY_ERROR");
       }
 
-      // 2. Despertar el hardware y solicitar permisos
-      // Intentamos con una configuración básica para que el navegador muestre el diálogo de "Permitir"
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("NOT_SUPPORTED");
+      }
+
+      // 2. FORZAR PERMISO (Universal)
+      // Pedimos video de la forma más básica posible para que el navegador lance el popup de "Permitir"
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       
-      // Liberamos la cámara momentáneamente para que la librería tome el control total
+      // Detenemos el stream de prueba inmediatamente para liberar el hardware
       stream.getTracks().forEach(track => track.stop());
 
-      // 3. Limpieza de escáneres colgados
+      // 3. Limpieza profunda
       if (scannerRef.current) {
         try {
           if (scannerRef.current.isScanning) {
@@ -195,7 +200,9 @@ export default function App() {
       if (errName.includes("notreadable") || errStr.includes("notreadable")) {
         errorMessage = "La cámara está siendo usada por otra aplicación o pestaña.";
       } else if (errStr.includes("security_error") || err.message === "SECURITY_ERROR") {
-        errorMessage = "Error de seguridad: El escáner requiere HTTPS. No funcionará si accedes mediante una dirección IP (http://192.168...). Usa el enlace de Render o 'localhost'.";
+        errorMessage = "Error de seguridad: La cámara requiere HTTPS o localhost. No funcionará usando la dirección IP directamente (ej. 192.168...).";
+      } else if (err.message === "NOT_SUPPORTED") {
+        errorMessage = "Tu navegador no soporta el acceso a la cámara o la tiene bloqueada globalmente.";
       } else if (errName.includes("notallowed") || errStr.includes("notallowed") || errStr.includes("permission denied")) {
         errorMessage = "Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración de tu navegador (haz clic en el candado junto a la URL).";
       } else if (errName.includes("notfound") || errStr.includes("notfound")) {
