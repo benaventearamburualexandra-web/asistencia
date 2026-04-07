@@ -4,6 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
   QrCode, 
+  Camera,
   Keyboard, 
   UserCheck, 
   LogOut, 
@@ -32,6 +33,7 @@ interface Teacher {
   first_name: string;
   last_name: string;
   specialty: string;
+  photo_url?: string;
 }
 
 interface AttendanceRecord {
@@ -82,7 +84,7 @@ export default function App() {
   const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
-  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '' });
+  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '' });
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '', name: '' });
@@ -98,7 +100,7 @@ export default function App() {
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, []);
 
   const startScanner = async () => {
@@ -115,79 +117,47 @@ export default function App() {
     setIsCameraActive(false);
 
     try {
-      // First, try to get cameras to trigger permission prompt if not already granted
-      let cameras: any[] = [];
-      try {
-        cameras = await Html5Qrcode.getCameras();
-      } catch (camErr: any) {
-        console.warn("Error getting cameras, might be permission issue:", camErr);
-        const camErrStr = camErr.toString().toLowerCase();
-        if (camErrStr.includes("notallowed") || camErr.name === "NotAllowedError" || camErrStr.includes("permission denied")) {
-          throw camErr;
-        }
-      }
+      // 1. Forzar solicitud de permisos nativa para activar el hardware
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: "environment" } 
+      });
+      stream.getTracks().forEach(track => track.stop());
 
-      // If there's an existing scanner, try to stop it first
+      // 2. Limpieza de escáner previo
       if (scannerRef.current) {
         try {
           if (scannerRef.current.isScanning) {
             await scannerRef.current.stop();
           }
           await scannerRef.current.clear();
-        } catch (e) {
-          console.warn("Error cleaning up previous scanner:", e);
-        }
+        } catch (e) {}
       }
 
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
 
-      // Dynamic qrbox size based on container width
-      const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
-        const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-        // The library requires a minimum of 50px for qrbox.
-        // We take 70% of the viewfinder but never go below 50px.
-        const qrboxSize = Math.max(50, Math.floor(minEdgeSize * 0.7));
-        return {
-          width: qrboxSize,
-          height: qrboxSize
-        };
-      };
-
       const config = { 
-        fps: 20, // Increased FPS for smoother detection
-        qrbox: qrboxFunction,
+        fps: 15, 
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const size = Math.min(viewfinderWidth, viewfinderHeight) * 0.7;
+          return { width: size, height: size };
+        },
         aspectRatio: 1.0,
-        disableFlip: false, // Ensure it works correctly on both front/back cameras
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
       };
       
       try {
-        // Try environment camera first
         await html5QrCode.start(
           { facingMode: "environment" }, 
           config,
           onScanSuccess,
           onScanFailure
         );
-        setIsCameraActive(true);
-      } catch (err: any) {
-        // If facingMode fails, try to use the first camera from the list
-        console.warn("Facing mode environment failed, trying first available camera:", err);
-        if (cameras && cameras.length > 0) {
-          await html5QrCode.start(
-            cameras[0].id,
-            config,
-            onScanSuccess,
-            onScanFailure
-          );
-          setIsCameraActive(true);
-        } else {
-          throw err;
-        }
+      } catch (err) {
+        // Fallback a cámara frontal/disponible
+        await html5QrCode.start({ facingMode: "user" }, config, onScanSuccess, onScanFailure);
       }
+      setIsCameraActive(true);
     } catch (err: any) {
       console.error("Error starting scanner:", err);
       let errorMessage = "No se pudo iniciar la cámara.";
@@ -239,22 +209,22 @@ export default function App() {
     }
   }, [activeTab, mode]);
 
-  const fetchData = async () => {
-    setIsLoading(true);
+  const fetchData = async (showLoader = false) => {
+    if (showLoader) setIsLoading(true);
     setDbStatus('checking');
     
-    // Si el servidor tarda más de 2 segundos, asumimos que está "despertando"
     const wakeupTimer = setTimeout(() => {
-      setIsWakingUp(true);
+      if (showLoader) setIsWakingUp(true);
     }, 2000);
 
     try {
+      const timestamp = Date.now();
       const responses = await Promise.allSettled([
-        fetch('/api/teachers'),
-        fetch('/api/report'),
-        fetch('/api/absences'),
-        fetch('/api/health'),
-        fetch('/api/admins')
+        fetch(`/api/teachers?t=${timestamp}`),
+        fetch(`/api/report?t=${timestamp}`),
+        fetch(`/api/absences?t=${timestamp}`),
+        fetch(`/api/health?t=${timestamp}`),
+        fetch(`/api/admins?t=${timestamp}`)
       ]);
 
       clearTimeout(wakeupTimer);
@@ -292,15 +262,13 @@ export default function App() {
         safeJson(responses[4])
       ]);
 
-      if (Array.isArray(tData)) setTeachers(tData);
+      if (Array.isArray(tData)) setTeachers([...tData]);
       if (Array.isArray(rData)) setRecords(rData);
       if (Array.isArray(aData)) setAbsences(aData);
       if (Array.isArray(admData)) setAdmins(admData);
 
       if (responses[0].status === 'rejected' || responses[1].status === 'rejected' || responses[2].status === 'rejected') {
-        if (showLoader) {
-          toast.error('Error parcial al cargar datos. Mostrando información previa.');
-        }
+        toast.error('Error parcial al cargar datos');
       } else {
         if (!responses[0].value?.ok || !responses[1].value?.ok || !responses[2].value?.ok) {
           toast.error('Error al cargar algunos datos de la base de datos');
@@ -378,9 +346,9 @@ export default function App() {
       if (response.ok) {
         toast.success(`Docente registrado con éxito`, { id: loading });
         setSelectedTeacherQR(data.teacher || teacherToSave as Teacher);
-        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '' });
+        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '' });
         setShowAddTeacher(false);
-        await fetchData(false); // Actualización silenciosa
+        await fetchData(false);
       } else {
         toast.error(data.error || 'Error al guardar', { id: loading });
       }
@@ -408,7 +376,7 @@ export default function App() {
         toast.success('Docente actualizado');
         setShowEditTeacher(false);
         setEditingTeacher(null);
-        fetchData();
+        await fetchData(false);
       } else {
         toast.error('Error al actualizar');
       }
@@ -435,12 +403,11 @@ export default function App() {
 
   function onScanSuccess(decodedText: string) {
     try {
-      // Evita procesar múltiples lecturas simultáneas
       if (isSubmitting) return;
 
       const now = Date.now();
-      // Cooldown de 5 segundos para el mismo ID para evitar escaneos duplicados accidentales
-      if (lastScannedRef.current.id === decodedText && (now - lastScannedRef.current.time) < 5000) {
+      // Cooldown local de 10 segundos para el mismo QR
+      if (lastScannedRef.current.id === decodedText && (now - lastScannedRef.current.time) < 10000) {
         return;
       }
       
@@ -1014,9 +981,17 @@ export default function App() {
                       className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all group"
                     >
                       <div className="flex items-start justify-between mb-4">
-                        <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                          <Users size={24} />
-                        </div>
+                        {teacher.photo_url ? (
+                          <img 
+                            src={teacher.photo_url} 
+                            alt="Foto" 
+                            className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-50"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                            <Users size={24} />
+                          </div>
+                        )}
                         <button
                           onClick={() => setSelectedTeacherQR(teacher)}
                           className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
@@ -1496,6 +1471,29 @@ export default function App() {
                 </button>
               </div>
               <form onSubmit={handleAddTeacher} className="space-y-6">
+                <div className="flex justify-center mb-4">
+                  <div className="relative group">
+                    <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                      {newTeacher.photo_url ? (
+                        <img src={newTeacher.photo_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="text-gray-300" size={32} />
+                      )}
+                    </div>
+                    <input 
+                      type="file" accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setNewTeacher({...newTeacher, photo_url: reader.result as string});
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
                   <input 
@@ -1562,6 +1560,29 @@ export default function App() {
                 </button>
               </div>
               <form onSubmit={handleUpdateTeacher} className="space-y-6">
+                <div className="flex justify-center mb-4">
+                  <div className="relative group">
+                    <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                      {editingTeacher.photo_url ? (
+                        <img src={editingTeacher.photo_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="text-gray-300" size={32} />
+                      )}
+                    </div>
+                    <input 
+                      type="file" accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => setEditingTeacher({...editingTeacher, photo_url: reader.result as string});
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
                   <input 
