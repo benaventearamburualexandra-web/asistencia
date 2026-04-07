@@ -3,6 +3,7 @@ import pg from "pg";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 import * as XLSX from 'xlsx';
 import nodemailer from 'nodemailer';
 
@@ -471,10 +472,14 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Usar CWD (Current Working Directory) es más seguro en Render para encontrar la carpeta dist
-    const distPath = path.resolve(process.cwd(), "dist");
+    // En producción, server.js está DENTRO de dist. 
+    // Intentamos buscar la carpeta dist en el directorio actual o uno arriba.
+    const distPath = fs.existsSync(path.join(process.cwd(), "dist")) 
+      ? path.join(process.cwd(), "dist")
+      : process.cwd();
 
-    // Configuramos el cache de forma inteligente: no cachear el index.html para asegurar actualizaciones
+    console.log(`📁 Sirviendo archivos estáticos desde: ${distPath}`);
+
     app.use(express.static(distPath, { 
       maxAge: '1d',
       setHeaders: (res, path) => {
