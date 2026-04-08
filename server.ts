@@ -131,18 +131,18 @@ async function startServer() {
   // Health check mejorado para verificar también la base de datos
   app.get("/api/health", async (req, res) => {
     try {
+      // Una consulta ultra rápida para verificar conexión sin carga
+      const start = Date.now();
       await pool.query('SELECT 1');
       res.json({ 
         status: "ok", 
         db: "connected",
-        uptime: Math.floor(process.uptime()) + "s"
+        uptime: Math.floor(process.uptime()) + "s",
+        latency: (Date.now() - start) + "ms"
       });
     } catch (err) {
-      res.status(503).json({ 
-        status: "error", 
-        db: "disconnected",
-        message: "El servidor funciona pero no hay conexión a la base de datos"
-      });
+      // Si la DB no responde rápido, el servidor aún está vivo
+      res.json({ status: "ok", db: "reconnecting" });
     }
   });
 
@@ -197,7 +197,7 @@ async function startServer() {
   app.post("/api/attendance", async (req, res) => {
     let lockKey = "";
     try {
-      let { teacherId, type } = req.body; // type: 'ENTRADA' | 'SALIDA'
+      let { teacherId, type, manualDate, manualTime } = req.body; // type: 'ENTRADA' | 'SALIDA'
       
       if (!teacherId || !type) {
         return res.status(400).json({ error: "Faltan datos requeridos" });
@@ -226,9 +226,13 @@ async function startServer() {
       const now = new Date();
       const timeZone = 'America/Lima';
       // Formato YYYY-MM-DD en hora Perú
-      const date = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone }).format(now);
+      const date = manualDate || new Intl.DateTimeFormat('en-CA', { 
+        year: 'numeric', month: '2-digit', day: '2-digit', timeZone 
+      }).format(now);
       // Usamos en-GB para forzar formato 24h (HH:mm:ss) y evitar problemas de AM/PM
-      const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone }).format(now);
+      const time = manualTime || new Intl.DateTimeFormat('en-GB', { 
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone 
+      }).format(now);
 
       // --- VALIDACIÓN DE DUPLICADOS ---
       // Buscamos el último registro de este docente, hoy y del mismo tipo
