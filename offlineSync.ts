@@ -10,7 +10,7 @@ export async function registerAttendance(teacherId: string, type: 'ENTRADA' | 'S
     type,
     manualDate: now.toISOString().split('T')[0], // YYYY-MM-DD
     manualTime: now.toLocaleTimeString('en-GB'),   // HH:mm:ss
-    offlineId: crypto.randomUUID() // Identificador único para evitar duplicados al sincronizar
+    offlineId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
   };
 
   try {

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, getISOWeek, getISOWeekYear } from 'date-fns';
+import { registerAttendance, syncOfflineData } from '../offlineSync';
 import * as XLSX from 'xlsx';
 
 interface Teacher {
@@ -106,6 +107,8 @@ export default function App() {
       setIsWongPort(true);
       toast.error('Estás usando el puerto de desarrollo. Cambia a http://localhost:3000', { duration: 10000 });
     }
+    // Al cargar la app, intentamos sincronizar datos pendientes
+    syncOfflineData();
     fetchData(true);
   }, []);
 
@@ -567,20 +570,12 @@ export default function App() {
     const loadingToast = toast.loading(`Verificando ID: ${cleanId}...`);
 
     try {
-      const response = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teacherId: cleanId,
-          type: attendanceTypeRef.current // USA LA REFERENCIA ACTUALIZADA
-        }),
-      });
+      // Usamos la función con soporte Offline/LocalStorage
+      const data = await registerAttendance(cleanId, attendanceTypeRef.current);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // El servidor nos confirma el nombre real del docente
-        toast.success(`${attendanceTypeRef.current} registrada: ${data.teacherName || cleanId}`, {
+      if (data.success) {
+        const statusMsg = data.offline ? " (Modo Offline)" : "";
+        toast.success(`${attendanceTypeRef.current} registrada${statusMsg}: ${data.teacherName || cleanId}`, {
           id: loadingToast,
           icon: <CheckCircle2 className="text-green-500" />,
           duration: 4000
