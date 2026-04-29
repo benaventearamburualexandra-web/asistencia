@@ -35,7 +35,7 @@ interface Teacher {
   last_name: string;
   specialty: string;
   photo_url?: string;
-  schedule?: Record<string, { enabled: boolean; start: string; end: string }>;
+  schedule?: Record<string, { enabled: boolean; start?: string; end?: string; slots?: {start: string, end: string}[] }>;
 }
 
 interface AttendanceRecord {
@@ -737,9 +737,9 @@ export default function App() {
   }), [absences, reportWeek, reportMonth]);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
+    <><div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
       <Toaster position="top-center" />
-      
+
       {isWakingUp && (dbStatus === 'checking' || dbStatus === 'reconnecting') && (
         <div className="fixed inset-0 z-[200] bg-indigo-600 flex flex-col items-center justify-center text-white p-6">
           <Loader2 className="animate-spin mb-4" size={48} />
@@ -760,78 +760,68 @@ export default function App() {
           </div>
         </div>
 
-          <div className="flex-1 px-4 py-2 space-y-1 overflow-x-auto md:overflow-x-visible flex md:flex-col gap-2 md:gap-1">
-            <button
-              onClick={() => setActiveTab('asistencia')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <LayoutDashboard size={20} />
-              <span>Asistencia</span>
-            </button>
-            
-            {adminUser && (
-              <>
-                <button
-                  onClick={() => setActiveTab('docentes')}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                    activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  <Users size={20} />
-                  <span>Docentes</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('reportes')}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                    activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  <FileText size={20} />
-                  <span>Reportes</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('faltas')}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${
-                    activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  <AlertCircle size={20} />
-                  <span>Faltas</span>
-                </button>
-              </>
-            )}
-          </div>
+        <div className="flex-1 px-4 py-2 space-y-1 overflow-x-auto md:overflow-x-visible flex md:flex-col gap-2 md:gap-1">
+          <button
+            onClick={() => setActiveTab('asistencia')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+          >
+            <LayoutDashboard size={20} />
+            <span>Asistencia</span>
+          </button>
 
-          <div className="p-4 border-t border-gray-100">
-            {adminUser ? (
+          {adminUser && (
+            <>
               <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50 transition-all"
+                onClick={() => setActiveTab('docentes')}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
               >
-                <LogOut size={20} />
-                <span>Salir Admin</span>
+                <Users size={20} />
+                <span>Docentes</span>
               </button>
-            ) : (
               <button
-                onClick={() => setShowLogin(true)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-gray-500 hover:bg-gray-50 transition-all"
+                onClick={() => setActiveTab('reportes')}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
               >
-                <Settings size={20} />
-                <span>Admin</span>
+                <FileText size={20} />
+                <span>Reportes</span>
               </button>
-            )}
-          </div>
+              <button
+                onClick={() => setActiveTab('faltas')}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all whitespace-nowrap ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                <AlertCircle size={20} />
+                <span>Faltas</span>
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-100">
+          {adminUser ? (
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50 transition-all"
+            >
+              <LogOut size={20} />
+              <span>Salir Admin</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowLogin(true)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-gray-500 hover:bg-gray-50 transition-all"
+            >
+              <Settings size={20} />
+              <span>Admin</span>
+            </button>
+          )}
+        </div>
 
         <div className="p-6 border-t border-gray-100 hidden md:block">
           <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
-            <div className={`w-2 h-2 rounded-full ${
-              dbStatus === 'connected' ? 'bg-green-500' : 
-              dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'
-            }`} />
-            {dbStatus === 'connected' ? 'Base de Datos Conectada' : 
-             dbStatus === 'error' ? (dbErrorMessage || 'Error de Conexión') : 'Verificando...'}
+            <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500' :
+                dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} />
+            {dbStatus === 'connected' ? 'Base de Datos Conectada' :
+              dbStatus === 'error' ? (dbErrorMessage || 'Error de Conexión') : 'Verificando...'}
           </div>
         </div>
       </nav>
@@ -853,21 +843,17 @@ export default function App() {
                     <h2 className="text-3xl font-extrabold tracking-tight">Registro de Asistencia</h2>
                     <p className="text-gray-500 font-medium">Escanea tu código o ingresa tu ID manualmente</p>
                   </div>
-                  
+
                   <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
                     <button
                       onClick={() => setAttendanceType('ENTRADA')}
-                      className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
-                        attendanceType === 'ENTRADA' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'text-gray-400 hover:text-gray-600'
-                      }`}
+                      className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'text-gray-400 hover:text-gray-600'}`}
                     >
                       ENTRADA
                     </button>
                     <button
                       onClick={() => setAttendanceType('SALIDA')}
-                      className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${
-                        attendanceType === 'SALIDA' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'text-gray-400 hover:text-gray-600'
-                      }`}
+                      className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'SALIDA' ? 'bg-orange-500 text-white shadow-lg shadow-orange-200' : 'text-gray-400 hover:text-gray-600'}`}
                     >
                       SALIDA
                     </button>
@@ -878,9 +864,7 @@ export default function App() {
                   <div className="flex border-b border-gray-100">
                     <button
                       onClick={() => setMode('scan')}
-                      className={`flex-1 py-6 flex items-center justify-center gap-2 font-bold transition-all relative ${
-                        mode === 'scan' ? 'text-indigo-600 bg-indigo-50/20' : 'text-gray-400 hover:text-gray-600'
-                      }`}
+                      className={`flex-1 py-6 flex items-center justify-center gap-2 font-bold transition-all relative ${mode === 'scan' ? 'text-indigo-600 bg-indigo-50/20' : 'text-gray-400 hover:text-gray-600'}`}
                     >
                       <QrCode size={20} />
                       Cámara QR
@@ -888,9 +872,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => setMode('manual')}
-                      className={`flex-1 py-6 flex items-center justify-center gap-2 font-bold transition-all relative ${
-                        mode === 'manual' ? 'text-indigo-600 bg-indigo-50/20' : 'text-gray-400 hover:text-gray-600'
-                      }`}
+                      className={`flex-1 py-6 flex items-center justify-center gap-2 font-bold transition-all relative ${mode === 'manual' ? 'text-indigo-600 bg-indigo-50/20' : 'text-gray-400 hover:text-gray-600'}`}
                     >
                       <Keyboard size={20} />
                       Manual
@@ -909,20 +891,19 @@ export default function App() {
                         >
                           <div className="w-full max-w-sm aspect-square bg-gray-50 rounded-[2rem] border-4 border-dashed border-gray-200 overflow-hidden relative group">
                             <div id="reader" className="w-full h-full"></div>
-                            
+
                             {/* Scanning Line Animation */}
                             {isCameraActive && !scannerError && (
-                              <motion.div 
+                              <motion.div
                                 initial={{ top: '10%' }}
                                 animate={{ top: '90%' }}
-                                transition={{ 
-                                  duration: 2, 
-                                  repeat: Infinity, 
-                                  repeatType: "reverse", 
-                                  ease: "linear" 
+                                transition={{
+                                  duration: 2,
+                                  repeat: Infinity,
+                                  repeatType: "reverse",
+                                  ease: "linear"
                                 }}
-                                className="absolute left-[10%] right-[10%] h-0.5 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)] z-10 pointer-events-none"
-                              />
+                                className="absolute left-[10%] right-[10%] h-0.5 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.8)] z-10 pointer-events-none" />
                             )}
 
                             {scannerError && (
@@ -931,7 +912,7 @@ export default function App() {
                                 <p className="text-sm font-bold text-gray-700 mb-1">Error de Cámara</p>
                                 <p className="text-xs text-gray-500 mb-5 px-4 leading-relaxed">{scannerError}</p>
                                 <div className="flex flex-col gap-2 w-full px-8">
-                                  <button 
+                                  <button
                                     onClick={async () => {
                                       try {
                                         await navigator.mediaDevices.getUserMedia({ video: true });
@@ -940,12 +921,12 @@ export default function App() {
                                         console.error("Manual permission request failed:", e);
                                         startScanner();
                                       }
-                                    }}
+                                    } }
                                     className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-bold shadow-lg shadow-indigo-100 active:scale-95 transition-all uppercase tracking-wider"
                                   >
                                     Permitir Acceso
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={startScanner}
                                     className="bg-gray-100 text-gray-600 px-6 py-3 rounded-2xl text-xs font-bold active:scale-95 transition-all uppercase tracking-wider"
                                   >
@@ -979,8 +960,7 @@ export default function App() {
                               onChange={(e) => setTeacherId(e.target.value)}
                               placeholder="Ej: 70654321"
                               className="w-full px-8 py-5 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-indigo-500 outline-none transition-all text-2xl font-mono text-center"
-                              autoFocus
-                            />
+                              autoFocus />
                           </div>
                           <button
                             type="submit"
@@ -1029,11 +1009,10 @@ export default function App() {
                     >
                       <div className="flex items-start justify-between mb-4">
                         {teacher.photo_url ? (
-                          <img 
-                            src={teacher.photo_url} 
-                            alt="Foto" 
-                            className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-50"
-                          />
+                          <img
+                            src={teacher.photo_url}
+                            alt="Foto"
+                            className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-50" />
                         ) : (
                           <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
                             <Users size={24} />
@@ -1055,10 +1034,10 @@ export default function App() {
                         </p>
                       )}
                       <p className="text-xs font-mono text-gray-400 uppercase tracking-widest">{teacher.id}</p>
-                      
+
                       <div className="mt-6 pt-6 border-t border-gray-50 flex justify-end gap-2">
-                        <button 
-                          onClick={() => { setEditingTeacher(teacher); setShowEditTeacher(true); }}
+                        <button
+                          onClick={() => { setEditingTeacher(teacher); setShowEditTeacher(true); } }
                           className="text-gray-300 hover:text-indigo-600 transition-colors p-2"
                         >
                           <Settings size={18} />
@@ -1089,31 +1068,29 @@ export default function App() {
                   <div className="flex flex-wrap gap-3 items-center">
                     <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm">
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mes:</span>
-                      <input 
-                        type="month" 
+                      <input
+                        type="month"
                         value={reportMonth}
                         onChange={(e) => {
                           setReportMonth(e.target.value);
                           setReportWeek(''); // Clear week when month changes
-                        }}
-                        className="text-sm font-bold text-gray-700 outline-none"
-                      />
+                        } }
+                        className="text-sm font-bold text-gray-700 outline-none" />
                     </div>
                     <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm">
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Semana:</span>
-                      <input 
-                        type="week" 
+                      <input
+                        type="week"
                         value={reportWeek}
                         onChange={(e) => {
                           setReportWeek(e.target.value);
                           if (e.target.value) setReportMonth(''); // Clear month when week is selected
-                        }}
-                        className="text-sm font-bold text-gray-700 outline-none"
-                      />
+                        } }
+                        className="text-sm font-bold text-gray-700 outline-none" />
                     </div>
                     {(reportMonth || reportWeek) && (
-                      <button 
-                        onClick={() => { setReportMonth(''); setReportWeek(''); }}
+                      <button
+                        onClick={() => { setReportMonth(''); setReportWeek(''); } }
                         className="text-[10px] font-bold text-red-500 hover:text-red-700 uppercase tracking-widest"
                       >
                         Limpiar
@@ -1143,7 +1120,7 @@ export default function App() {
                     </div>
                     <p className="text-xs text-gray-400 mt-2 font-medium">Entradas registradas {reportWeek ? 'esta semana' : 'este mes'}</p>
                   </div>
-                  
+
                   <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center">
@@ -1198,48 +1175,44 @@ export default function App() {
                           ...filteredRecords.map(r => ({ ...r, eventType: 'ASISTENCIA' })),
                           ...filteredAbsences.map(a => ({ ...a, eventType: 'FALTA' }))
                         ]
-                        .sort((a, b) => b.date.localeCompare(a.date))
-                        .map((item: any, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50/30 transition-colors">
-                            <td className="px-8 py-5">
-                              <div className="font-bold text-gray-800">{item.teacher_name}</div>
-                              <div className="text-[10px] font-mono text-gray-400 uppercase">{item.teacher_id}</div>
-                            </td>
-                            <td className="px-8 py-5">
-                              {item.eventType === 'ASISTENCIA' ? (
-                                <div className="flex flex-col gap-1">
-                                  <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase text-center ${
-                                    item.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
-                                  }`}>
-                                    {item.type}
+                          .sort((a, b) => b.date.localeCompare(a.date))
+                          .map((item: any, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50/30 transition-colors">
+                              <td className="px-8 py-5">
+                                <div className="font-bold text-gray-800">{item.teacher_name}</div>
+                                <div className="text-[10px] font-mono text-gray-400 uppercase">{item.teacher_id}</div>
+                              </td>
+                              <td className="px-8 py-5">
+                                {item.eventType === 'ASISTENCIA' ? (
+                                  <div className="flex flex-col gap-1">
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase text-center ${item.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                                      {item.type}
+                                    </span>
+                                    {item.status === 'TARDE' && (
+                                      <span className="bg-red-500 text-white text-[8px] font-black text-center rounded py-0.5">TARDE</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${item.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                    FALTA {item.status}
                                   </span>
-                                  {item.status === 'TARDE' && (
-                                    <span className="bg-red-500 text-white text-[8px] font-black text-center rounded py-0.5">TARDE</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${
-                                  item.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                                }`}>
-                                  FALTA {item.status}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-8 py-5 text-sm font-medium text-gray-500">{item.date}</td>
-                            <td className="px-8 py-5 text-sm font-bold text-gray-700">
-                              {item.eventType === 'ASISTENCIA' ? item.time : (item.reason || '-')}
-                            </td>
-                          </tr>
-                        ))}
+                                )}
+                              </td>
+                              <td className="px-8 py-5 text-sm font-medium text-gray-500">{item.date}</td>
+                              <td className="px-8 py-5 text-sm font-bold text-gray-700">
+                                {item.eventType === 'ASISTENCIA' ? item.time : (item.reason || '-')}
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>
-                  {filteredRecords.length === 0 && 
-                   filteredAbsences.length === 0 && (
-                    <div className="p-20 text-center text-gray-400 font-medium">
-                      No hay registros para este periodo
-                    </div>
-                  )}
+                  {filteredRecords.length === 0 &&
+                    filteredAbsences.length === 0 && (
+                      <div className="p-20 text-center text-gray-400 font-medium">
+                        No hay registros para este periodo
+                      </div>
+                    )}
                 </div>
               </motion.div>
             )}
@@ -1287,9 +1260,7 @@ export default function App() {
                               <div className="text-[10px] font-mono text-gray-400 uppercase">{abs.teacher_id}</div>
                             </td>
                             <td className="px-8 py-5">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${
-                                abs.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${abs.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
                                 {abs.status}
                               </span>
                             </td>
@@ -1327,7 +1298,7 @@ export default function App() {
                 <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-sm">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-xl">Administradores</h3>
-                    <button 
+                    <button
                       onClick={() => setShowAddAdmin(true)}
                       className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold"
                     >
@@ -1341,8 +1312,8 @@ export default function App() {
                           <div className="font-bold">{adm.name}</div>
                           <div className="text-xs text-gray-400">Usuario: {adm.username}</div>
                         </div>
-                        <button 
-                          onClick={() => { setNewAdmin({...adm, password: ''}); setShowAddAdmin(true); }}
+                        <button
+                          onClick={() => { setNewAdmin({ ...adm, password: '' }); setShowAddAdmin(true); } }
                           className="text-indigo-600 text-sm font-bold"
                         >
                           Editar
@@ -1361,12 +1332,11 @@ export default function App() {
       <AnimatePresence>
         {showLogin && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowLogin(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-white rounded-[2.5rem] p-10 w-full max-w-sm relative z-10 shadow-2xl"
             >
@@ -1374,22 +1344,20 @@ export default function App() {
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Usuario</label>
-                  <input 
+                  <input
                     type="text" required value={loginUsername}
                     onChange={e => setLoginUsername(e.target.value)}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="admin"
-                  />
+                    placeholder="admin" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Contraseña</label>
-                  <input 
+                  <input
                     type="password" required value={password}
                     onChange={e => setPassword(e.target.value)}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                     placeholder="••••••••"
-                    autoFocus
-                  />
+                    autoFocus />
                 </div>
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
                   Entrar
@@ -1401,12 +1369,11 @@ export default function App() {
 
         {showAddAbsence && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowAddAbsence(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="bg-white rounded-[2.5rem] p-10 w-full max-w-md relative z-10 shadow-2xl"
             >
@@ -1419,9 +1386,9 @@ export default function App() {
               <form onSubmit={handleAddAbsence} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Docente</label>
-                  <select 
+                  <select
                     required value={newAbsence.teacherId}
-                    onChange={e => setNewAbsence({...newAbsence, teacherId: e.target.value})}
+                    onChange={e => setNewAbsence({ ...newAbsence, teacherId: e.target.value })}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                   >
                     <option value="">Seleccionar Docente</option>
@@ -1431,17 +1398,16 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Fecha</label>
-                    <input 
+                    <input
                       type="date" required value={newAbsence.date}
-                      onChange={e => setNewAbsence({...newAbsence, date: e.target.value})}
-                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    />
+                      onChange={e => setNewAbsence({ ...newAbsence, date: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Estado</label>
-                    <select 
+                    <select
                       required value={newAbsence.status}
-                      onChange={e => setNewAbsence({...newAbsence, status: e.target.value as any})}
+                      onChange={e => setNewAbsence({ ...newAbsence, status: e.target.value as any })}
                       className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
                     >
                       <option value="INJUSTIFICADA">Injustificada</option>
@@ -1451,12 +1417,11 @@ export default function App() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Motivo / Observación</label>
-                  <textarea 
+                  <textarea
                     value={newAbsence.reason}
-                    onChange={e => setNewAbsence({...newAbsence, reason: e.target.value})}
+                    onChange={e => setNewAbsence({ ...newAbsence, reason: e.target.value })}
                     className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all h-24 resize-none"
-                    placeholder="Ej: Cita médica, permiso personal..."
-                  />
+                    placeholder="Ej: Cita médica, permiso personal..." />
                 </div>
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
                   Guardar Registro
@@ -1477,30 +1442,27 @@ export default function App() {
               <form onSubmit={handleSaveAdmin} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase">Nombre Completo</label>
-                  <input 
+                  <input
                     type="text" required value={newAdmin.name}
-                    onChange={e => setNewAdmin({...newAdmin, name: e.target.value})}
+                    onChange={e => setNewAdmin({ ...newAdmin, name: e.target.value })}
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
-                    placeholder="Ej: Nicolle Admin"
-                  />
+                    placeholder="Ej: Nicolle Admin" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase">Usuario</label>
-                  <input 
+                  <input
                     type="text" required value={newAdmin.username}
-                    onChange={e => setNewAdmin({...newAdmin, username: e.target.value})}
+                    onChange={e => setNewAdmin({ ...newAdmin, username: e.target.value })}
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
-                    placeholder="nicolle.admin"
-                  />
+                    placeholder="nicolle.admin" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase">Nueva Contraseña</label>
-                  <input 
+                  <input
                     type="password" required value={newAdmin.password}
-                    onChange={e => setNewAdmin({...newAdmin, password: e.target.value})}
+                    onChange={e => setNewAdmin({ ...newAdmin, password: e.target.value })}
                     className="w-full px-4 py-3 bg-gray-50 border rounded-xl"
-                    placeholder="••••••••"
-                  />
+                    placeholder="••••••••" />
                 </div>
                 <p className="text-[10px] text-gray-400 italic">* Si el usuario ya existe, se actualizarán sus datos.</p>
                 <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold">
@@ -1512,43 +1474,328 @@ export default function App() {
         )}
         {showAddTeacher && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setShowAddTeacher(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-10 w-full max-w-md relative z-10 shadow-2xl"
+              className="bg-white rounded-[2.5rem] w-full max-w-md relative z-10 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
             >
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-extrabold">Nuevo Docente</h2>
-                <button onClick={() => setShowAddTeacher(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <X size={24} />
-                </button>
-              </div>
-              <form onSubmit={handleAddTeacher} className="space-y-6">
-                <div className="flex justify-center mb-4">
-                  <div className="relative group">
-                    <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
-                      {newTeacher.photo_url ? (
-                        <img src={newTeacher.photo_url} className="w-full h-full object-cover" />
-                      ) : (
-                        <Camera className="text-gray-300" size={32} />
-                      )}
+              <form onSubmit={handleAddTeacher} className="flex flex-col h-full overflow-hidden">
+                {/* Cabecera Fija */}
+                <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 bg-white z-20">
+                  <h2 className="text-2xl font-extrabold">Nuevo Docente</h2>
+                  <button type="button" onClick={() => setShowAddTeacher(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {/* Cuerpo con Desplazamiento (Barra vertical) */}
+                <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                  <div className="flex justify-center mb-4">
+                    <div className="relative group">
+                      <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                        {newTeacher.photo_url ? (
+                          <img src={newTeacher.photo_url} className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera className="text-gray-300" size={32} />
+                        )}
+                      </div>
+                      <input
+                        type="file" accept="image/*"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => setNewTeacher({ ...newTeacher, photo_url: reader.result as string });
+                            reader.readAsDataURL(file);
+                          }
+                        } } />
                     </div>
-                    <input 
-                      type="file" accept="image/*" 
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => setNewTeacher({...newTeacher, photo_url: reader.result as string});
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
+                    <input
+                      type="text" required value={newTeacher.first_name}
+                      onChange={e => setNewTeacher({ ...newTeacher, first_name: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                      placeholder="Escribe los nombres" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Apellidos</label>
+                    <input
+                      type="text" required value={newTeacher.last_name}
+                      onChange={e => setNewTeacher({ ...newTeacher, last_name: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                      placeholder="Escribe los apellidos" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
+                    <input
+                      type="text" required value={newTeacher.id}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^0-9]/g, ''); // Solo permite números
+                        setNewTeacher({ ...newTeacher, id: val });
+                      } }
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono"
+                      placeholder="Ej: 70654321"
+                      maxLength={12} />
+                  </div>
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
+                    <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2 block">Horario Semanal</label>
+                    {Object.entries(newTeacher.schedule).map(([day, data]: [string, any]) => (
+                      <div key={day} className="flex items-center justify-between p-2 bg-white rounded-xl mb-1 border border-gray-100 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox" checked={data.enabled}
+                            className="w-4 h-4 rounded text-indigo-600"
+                            onChange={e => setNewTeacher({
+                              ...newTeacher,
+                              schedule: { ...newTeacher.schedule, [day]: { ...data, enabled: e.target.checked } }
+                            })} />
+                          <span className="text-xs font-bold w-12 uppercase text-gray-600">{DAY_LABELS[day] || day}</span>
+                        </div>
+
+                        {data.enabled ? (
+                          <div className="flex flex-col gap-2 flex-1 items-end ml-4">
+                            {(data.slots || [{ start: data.start || '07:45', end: data.end || '14:05' }]).map((slot: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                <div className="flex flex-col">
+                                  <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Inicio</span>
+                                  <input
+                                    type="time" value={slot.start}
+                                    onChange={e => {
+                                      const newSlots = [...(data.slots || [{ start: data.start, end: data.end }])];
+                                      newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                      setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                                    } }
+                                    className="text-[10px] p-1 bg-white border border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Fin</span>
+                                  <input
+                                    type="time" value={slot.end || '14:05'}
+                                    onChange={e => {
+                                      const newSlots = [...(data.slots || [{ start: data.start, end: data.end }])];
+                                      newSlots[idx] = { ...newSlots[idx], end: e.target.value };
+                                      setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                                    } }
+                                    className="text-[10px] p-1 bg-white border border-gray-100 rounded-lg font-bold text-gray-600 outline-none" />
+                                </div>
+                                {idx > 0 && (
+                                  <button type="button" onClick={() => {
+                                    const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                                    setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                                  } } className="text-red-400 hover:text-red-600 self-end mb-1 px-1">
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentSlots = data.slots || [{ start: data.start || '07:45', end: data.end || '14:05' }];
+                                setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: [...currentSlots, { start: '07:45', end: '14:05' }] } } });
+                              } }
+                              className="text-[9px] font-bold text-indigo-600 hover:underline"
+                            >
+                              + Agregar Bloque
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-300 font-bold uppercase italic">No labora</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Cargo o Especialidad</label>
+                    <input
+                      type="text" required value={newTeacher.specialty}
+                      onChange={e => setNewTeacher({ ...newTeacher, specialty: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                      placeholder="Ej: Docente de Primaria / Cargo administrativo" />
+                  </div>
+                </div>
+
+                {/* Pie de Página Fijo */}
+                <div className="p-8 pt-4 border-t border-gray-50 bg-white z-20">
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                    Guardar Docente
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {showEditTeacher && editingTeacher && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => { setShowEditTeacher(false); setEditingTeacher(null); } }
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-md relative z-10 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+            >
+              <form onSubmit={handleUpdateTeacher} className="flex flex-col h-full overflow-hidden">
+                {/* Cabecera Fija */}
+                <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 bg-white z-20">
+                  <h2 className="text-2xl font-extrabold">Editar Docente</h2>
+                  <button type="button" onClick={() => { setShowEditTeacher(false); setEditingTeacher(null); } } className="p-2 hover:bg-gray-100 rounded-full">
+                    <X size={24} />
+                  </button>
+                </div>
+
+                {/* Cuerpo con Desplazamiento */}
+                <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                  <div className="flex justify-center mb-4">
+                    <div className="relative group">
+                      <div className="w-24 h-24 bg-gray-50 rounded-[2rem] border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden">
+                        {editingTeacher.photo_url ? (
+                          <img src={editingTeacher.photo_url} className="w-full h-full object-cover" />
+                        ) : (
+                          <Camera className="text-gray-300" size={32} />
+                        )}
+                      </div>
+                      <input
+                        type="file" accept="image/*"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => setEditingTeacher({ ...editingTeacher, photo_url: reader.result as string });
+                            reader.readAsDataURL(file);
+                          }
+                        } } />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Nombres</label>
+                    <input
+                      type="text" required value={editingTeacher.first_name}
+                      onChange={e => setEditingTeacher({ ...editingTeacher, first_name: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Apellidos</label>
+                    <input
+                      type="text" required value={editingTeacher.last_name}
+                      onChange={e => setEditingTeacher({ ...editingTeacher, last_name: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">DNI / Documento</label>
+                    <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
+                  </div>
+                  <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
+                    <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2 block">Horario Semanal</label>
+                    {Object.entries(editingTeacher.schedule || INITIAL_SCHEDULE).map(([day, data]: [string, any]) => (
+                      <div key={day} className="flex items-center justify-between p-2 bg-white rounded-xl mb-1 border border-gray-100 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox" checked={data.enabled}
+                            className="w-4 h-4 rounded text-indigo-600"
+                            onChange={e => setEditingTeacher({
+                              ...editingTeacher,
+                              schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, enabled: e.target.checked } }
+                            })} />
+                          <span className="text-xs font-bold w-12 uppercase text-gray-600">{DAY_LABELS[day] || day}</span>
+                        </div>
+
+                        {data.enabled ? (
+                          <div className="flex flex-col gap-2 flex-1 items-end ml-4">
+                            {(data.slots || [{ start: data.start || '07:45', end: data.end || '14:05' }]).map((slot: any, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                <div className="flex flex-col">
+                                  <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Inicio</span>
+                                  <input
+                                    type="time" value={slot.start}
+                                    onChange={e => {
+                                      const newSlots = [...(data.slots || [{ start: data.start, end: data.end }])];
+                                      newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                      setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: newSlots } } });
+                                    } }
+                                    className="text-[10px] p-1 bg-white border border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Fin</span>
+                                  <input
+                                    type="time" value={slot.end || '14:05'}
+                                    onChange={e => {
+                                      const newSlots = [...(data.slots || [{ start: data.start, end: data.end }])];
+                                      newSlots[idx] = { ...newSlots[idx], end: e.target.value };
+                                      setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: newSlots } } });
+                                    } }
+                                    className="text-[10px] p-1 bg-white border border-gray-100 rounded-lg font-bold text-gray-600 outline-none" />
+                                </div>
+                                {idx > 0 && (
+                                  <button type="button" onClick={() => {
+                                    const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                                    setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: newSlots } } });
+                                  } } className="text-red-400 hover:text-red-600 self-end mb-1 px-1">
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentSlots = data.slots || [{ start: data.start || '07:45', end: data.end || '14:05' }];
+                                setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: [...currentSlots, { start: '07:45', end: '14:05' }] } } });
+                              } }
+                              className="text-[9px] font-bold text-indigo-600 hover:underline"
+                            >
+                              + Agregar Bloque
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-gray-300 font-bold uppercase italic">No labora</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
+                    <input
+                      type="text" required value={editingTeacher.specialty}
+                      onChange={e => setEditingTeacher({ ...editingTeacher, specialty: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all" />
+                  </div>
+                </div>
+
+                {/* Pie de Página Fijo */}
+                <div className="p-8 pt-4 border-t border-gray-50 bg-white z-20">
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                    Actualizar Datos
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {selectedTeacherQR && (
+        )} : (
+        <Camera className="text-gray-300" size={32} />
+        )}
+      </></div><input
+        type="file" accept="image/*"
+        className="absolute inset-0 opacity-0 cursor-pointer"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => setNewTeacher({ ...newTeacher, photo_url: reader.result as string });
+            reader.readAsDataURL(file);
+          }
+        } } /></>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -1601,23 +1848,37 @@ export default function App() {
                       {data.enabled ? (
                       <div className="flex flex-col gap-2 flex-1 items-end ml-4">
                         {(data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}]).map((slot: any, idx: number) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <span className="text-[8px] font-bold text-gray-400">INICIO:</span>
-                            <input 
-                              type="time" value={slot.start}
-                              onChange={e => {
-                                const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
-                                newSlots[idx] = { ...newSlots[idx], start: e.target.value };
-                                setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
-                              }}
-                              className="text-xs p-1 bg-indigo-50 rounded font-bold text-indigo-700 outline-none"
-                            />
+                          <div key={idx} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                            <div className="flex flex-col">
+                              <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Inicio</span>
+                              <input 
+                                type="time" value={slot.start}
+                                onChange={e => {
+                                  const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
+                                  newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                  setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
+                                }}
+                                className="text-[10px] p-1 bg-white border border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none"
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Fin</span>
+                              <input 
+                                type="time" value={slot.end || '14:05'}
+                                onChange={e => {
+                                  const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
+                                  newSlots[idx] = { ...newSlots[idx], end: e.target.value };
+                                  setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
+                                }}
+                                className="text-[10px] p-1 bg-white border border-gray-100 rounded-lg font-bold text-gray-600 outline-none"
+                              />
+                            </div>
                             {idx > 0 && (
                               <button type="button" onClick={() => {
                                 const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
                                 setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
-                              }} className="text-red-400 hover:text-red-600">
-                                <Trash2 size={12} />
+                              }} className="text-red-400 hover:text-red-600 self-end mb-1 px-1">
+                                <Trash2 size={14} />
                               </button>
                             )}
                           </div>
@@ -1665,7 +1926,7 @@ export default function App() {
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-              className="bg-white rounded-[2.5rem] p-10 w-full max-w-md relative z-10 shadow-2xl"
+              className="bg-white rounded-[2.5rem] p-8 w-full max-w-md relative z-10 shadow-2xl max-h-[95vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-2xl font-extrabold">Editar Docente</h2>
@@ -1736,23 +1997,37 @@ export default function App() {
                       {data.enabled ? (
                       <div className="flex flex-col gap-2 flex-1 items-end ml-4">
                         {(data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}]).map((slot: any, idx: number) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <span className="text-[8px] font-bold text-gray-400">INICIO:</span>
-                            <input 
-                              type="time" value={slot.start}
-                              onChange={e => {
-                                const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
-                                newSlots[idx] = { ...newSlots[idx], start: e.target.value };
-                                setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: newSlots}}});
-                              }}
-                              className="text-xs p-1 bg-indigo-50 rounded font-bold text-indigo-700 outline-none"
-                            />
+                          <div key={idx} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                            <div className="flex flex-col">
+                              <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Inicio</span>
+                              <input 
+                                type="time" value={slot.start}
+                                onChange={e => {
+                                  const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
+                                  newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                  setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: newSlots}}});
+                                }}
+                                className="text-[10px] p-1 bg-white border border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none"
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Fin</span>
+                              <input 
+                                type="time" value={slot.end || '14:05'}
+                                onChange={e => {
+                                  const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
+                                  newSlots[idx] = { ...newSlots[idx], end: e.target.value };
+                                  setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: newSlots}}});
+                                }}
+                                className="text-[10px] p-1 bg-white border border-gray-100 rounded-lg font-bold text-gray-600 outline-none"
+                              />
+                            </div>
                             {idx > 0 && (
                               <button type="button" onClick={() => {
                                 const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
                                 setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: newSlots}}});
-                              }} className="text-red-400 hover:text-red-600">
-                                <Trash2 size={12} />
+                              }} className="text-red-400 hover:text-red-600 self-end mb-1 px-1">
+                                <Trash2 size={14} />
                               </button>
                             )}
                           </div>
