@@ -1798,120 +1798,108 @@ export default function App() {
         } } /></>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
-                  <input 
-                    type="text" required value={newTeacher.first_name}
-                    onChange={e => setNewTeacher({...newTeacher, first_name: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Escribe los nombres"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Apellidos</label>
-                  <input 
-                    type="text" required value={newTeacher.last_name}
-                    onChange={e => setNewTeacher({...newTeacher, last_name: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Escribe los apellidos"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
-                  <input 
-                    type="text" required value={newTeacher.id}
-                    onChange={e => {
-                      const val = e.target.value.replace(/[^0-9]/g, ''); // Solo permite números
-                      setNewTeacher({...newTeacher, id: val});
-                    }}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono"
-                    placeholder="Ej: 70654321"
-                    maxLength={12}
-                  />
-                </div>
-                <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
-                  <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2 block">Horario Semanal de Entrada</label>
-                  {Object.entries(newTeacher.schedule).map(([day, data]: [string, any]) => (
-                    <div key={day} className="flex items-center justify-between p-2 bg-white rounded-xl mb-1 border border-gray-100 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" checked={data.enabled} 
-                          className="w-4 h-4 rounded text-indigo-600"
-                          onChange={e => setNewTeacher({
-                            ...newTeacher, 
-                            schedule: {...newTeacher.schedule, [day]: {...data, enabled: e.target.checked}}
-                          })}
-                        />
-                      <span className="text-xs font-bold w-12 uppercase text-gray-600">{DAY_LABELS[day] || day}</span>
-                      </div>
-
-                      {data.enabled ? (
-                      <div className="flex flex-col gap-2 flex-1 items-end ml-4">
-                        {(data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}]).map((slot: any, idx: number) => (
-                          <div key={idx} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
-                            <div className="flex flex-col">
-                              <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Inicio</span>
-                              <input 
-                                type="time" value={slot.start}
-                                onChange={e => {
-                                  const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
-                                  newSlots[idx] = { ...newSlots[idx], start: e.target.value };
-                                  setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
-                                }}
-                                className="text-[10px] p-1 bg-white border border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none"
-                              />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Fin</span>
-                              <input 
-                                type="time" value={slot.end || '14:05'}
-                                onChange={e => {
-                                  const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
-                                  newSlots[idx] = { ...newSlots[idx], end: e.target.value };
-                                  setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
-                                }}
-                                className="text-[10px] p-1 bg-white border border-gray-100 rounded-lg font-bold text-gray-600 outline-none"
-                              />
-                            </div>
-                            {idx > 0 && (
-                              <button type="button" onClick={() => {
-                                const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
-                                setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
-                              }} className="text-red-400 hover:text-red-600 self-end mb-1 px-1">
-                                <Trash2 size={14} />
-                              </button>
-                            )}
+                <><div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
+                    <input
+                      type="text" required value={newTeacher.first_name}
+                      onChange={e => setNewTeacher({ ...newTeacher, first_name: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                      placeholder="Escribe los nombres" />
+                  </div><div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Apellidos</label>
+                      <input
+                        type="text" required value={newTeacher.last_name}
+                        onChange={e => setNewTeacher({ ...newTeacher, last_name: e.target.value })}
+                        className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                        placeholder="Escribe los apellidos" />
+                    </div><div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
+                      <input
+                        type="text" required value={newTeacher.id}
+                        onChange={e => {
+                          const val = e.target.value.replace(/[^0-9]/g, ''); // Solo permite números
+                          setNewTeacher({ ...newTeacher, id: val });
+                        } }
+                        className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-mono"
+                        placeholder="Ej: 70654321"
+                        maxLength={12} />
+                    </div><div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
+                      <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2 block">Horario Semanal de Entrada</label>
+                      {Object.entries(newTeacher.schedule).map(([day, data]: [string, any]) => (
+                        <div key={day} className="flex items-center justify-between p-2 bg-white rounded-xl mb-1 border border-gray-100 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox" checked={data.enabled}
+                              className="w-4 h-4 rounded text-indigo-600"
+                              onChange={e => setNewTeacher({
+                                ...newTeacher,
+                                schedule: { ...newTeacher.schedule, [day]: { ...data, enabled: e.target.checked } }
+                              })} />
+                            <span className="text-xs font-bold w-12 uppercase text-gray-600">{DAY_LABELS[day] || day}</span>
                           </div>
-                        ))}
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            const currentSlots = data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}];
-                            setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: [...currentSlots, {start: '07:45', end: '14:05'}]}}});
-                          }}
-                          className="text-[9px] font-bold text-indigo-600 hover:underline"
-                        >
-                          + Agregar Bloque
-                        </button>
-                      </div>
-                      ) : (
-                        <span className="text-[10px] text-gray-300 font-bold uppercase italic">No labora</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Cargo o Especialidad</label>
-                  <input 
-                    type="text" required value={newTeacher.specialty}
-                    onChange={e => setNewTeacher({...newTeacher, specialty: e.target.value})}
-                    className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
-                    placeholder="Ej: Docente de Primaria / Cargo administrativo"
-                  />
-                </div>
-                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
-                  Guardar Docente
-                </button>
+
+                          {data.enabled ? (
+                            <div className="flex flex-col gap-2 flex-1 items-end ml-4">
+                              {(data.slots || [{ start: data.start || '07:45', end: data.end || '14:05' }]).map((slot: any, idx: number) => (
+                                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                  <div className="flex flex-col">
+                                    <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Inicio</span>
+                                    <input
+                                      type="time" value={slot.start}
+                                      onChange={e => {
+                                        const newSlots = [...(data.slots || [{ start: data.start, end: data.end }])];
+                                        newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                        setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                                      } }
+                                      className="text-[10px] p-1 bg-white border border-indigo-100 rounded-lg font-bold text-indigo-700 outline-none" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[7px] font-black text-gray-400 uppercase ml-1">Fin</span>
+                                    <input
+                                      type="time" value={slot.end || '14:05'}
+                                      onChange={e => {
+                                        const newSlots = [...(data.slots || [{ start: data.start, end: data.end }])];
+                                        newSlots[idx] = { ...newSlots[idx], end: e.target.value };
+                                        setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                                      } }
+                                      className="text-[10px] p-1 bg-white border border-gray-100 rounded-lg font-bold text-gray-600 outline-none" />
+                                  </div>
+                                  {idx > 0 && (
+                                    <button type="button" onClick={() => {
+                                      const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                                      setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                                    } } className="text-red-400 hover:text-red-600 self-end mb-1 px-1">
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentSlots = data.slots || [{ start: data.start || '07:45', end: data.end || '14:05' }];
+                                  setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: [...currentSlots, { start: '07:45', end: '14:05' }] } } });
+                                } }
+                                className="text-[9px] font-bold text-indigo-600 hover:underline"
+                              >
+                                + Agregar Bloque
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-300 font-bold uppercase italic">No labora</span>
+                          )}
+                        </div>
+                      ))}
+                    </div><div className="space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Cargo o Especialidad</label>
+                      <input
+                        type="text" required value={newTeacher.specialty}
+                        onChange={e => setNewTeacher({ ...newTeacher, specialty: e.target.value })}
+                        className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none transition-all"
+                        placeholder="Ej: Docente de Primaria / Cargo administrativo" />
+                    </div><button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all">
+                      Guardar Docente
+                    </button></>
               </form>
             </motion.div>
           </div>
