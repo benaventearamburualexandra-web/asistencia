@@ -32,6 +32,8 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 30000, // 30s para dar tiempo a Supabase a despertar
   maxUses: 7500, // Ayuda a refrescar conexiones y evitar fugas de memoria
+  allowExitOnIdle: true,
+  application_name: 'asistencia_docente'
 });
 
 // Manejo de errores de conexión para evitar que el servidor se cuelgue
@@ -55,7 +57,8 @@ async function initDb() {
           first_name TEXT NOT NULL,
           last_name TEXT NOT NULL,
           specialty TEXT NOT NULL,
-          photo_url TEXT
+          photo_url TEXT,
+          schedule JSONB DEFAULT '{}'::jsonb
         );
         ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
         
@@ -64,7 +67,8 @@ async function initDb() {
           teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
           type TEXT,
           date TEXT,
-          time TEXT
+          time TEXT,
+          status TEXT DEFAULT 'PUNTUAL'
         );
         ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
   
@@ -87,6 +91,8 @@ async function initDb() {
 
       // Asegurar que la columna existe si la tabla ya estaba creada
       await client.query("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS photo_url TEXT");
+      await client.query("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT '{}'::jsonb");
+      await client.query("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PUNTUAL'");
   
       // Seed default data if needed
       const { rows } = await client.query("SELECT COUNT(*) as count FROM teachers");
@@ -109,7 +115,8 @@ async function initDb() {
 
     } catch (err) {
       retries--;
-      console.error(`❌ Error de conexión o inicialización de DB: ${err instanceof Error ? err.message : err}. Reintentando...`);
+      const errorMsg = err instanceof Error ? err.message : String(err).substring(0, 500);
+      console.error(`❌ Error de conexión o inicialización de DB: ${errorMsg}. Reintentando...`);
       if (retries > 0) await new Promise(res => setTimeout(res, 5000)); // Esperar 5s antes de reintentar
       else {
         console.error("❌ Fallaron todos los intentos de conexión/inicialización de DB.");
@@ -217,11 +224,11 @@ async function startServer() {
       processingLocks.add(lockKey);
 
       // 1. Validar si el docente existe y obtener su nombre
-      const teacherRes = await pool.query("SELECT (first_name || ' ' || last_name) as name FROM teachers WHERE id = $1", [tid]);
+      const teacherRes = await pool.query("SELECT (first_name || ' ' || last_name) as name, schedule FROM teachers WHERE id = $1", [tid]);
       if (teacherRes.rows.length === 0) {
         return res.status(404).json({ error: `El ID "${tid}" no está registrado en el sistema.` });
       }
-      const teacherName = teacherRes.rows[0].name;
+      const { name: teacherName, schedule } = teacherRes.rows[0];
 
       const now = new Date();
       const timeZone = 'America/Lima';
@@ -233,6 +240,23 @@ async function startServer() {
       const time = manualTime || new Intl.DateTimeFormat('en-GB', { 
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone 
       }).format(now);
+
+      // --- LÓGICA DE TARDANZA ---
+      let status = 'PUNTUAL';
+      if (type === 'ENTRADA' && schedule) {
+        // Obtener el día de la semana en español/inglés para el objeto schedule
+        const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }).format(now).toLowerCase();
+        const daySchedule = schedule[dayName];
+        
+        if (daySchedule && daySchedule.enabled && daySchedule.start) {
+          // Comparación simple de strings "HH:mm"
+          const currentTimeStr = time.substring(0, 5); 
+          if (currentTimeStr > daySchedule.start) {
+            status = 'TARDE';
+          }
+        }
+      }
+      // --------------------------
 
       // --- VALIDACIÓN DE DUPLICADOS ---
       // Buscamos el último registro de este docente, hoy y del mismo tipo
@@ -263,8 +287,8 @@ async function startServer() {
       // --------------------------------
 
       await pool.query(
-        "INSERT INTO attendance (teacher_id, type, date, time) VALUES ($1, $2, $3, $4)",
-        [tid, type, date, time]
+        "INSERT INTO attendance (teacher_id, type, date, time, status) VALUES ($1, $2, $3, $4, $5)",
+        [tid, type, date, time, status]
       );
 
       res.json({ success: true, message: `Asistencia de ${type} registrada`, teacherName });
@@ -363,7 +387,7 @@ async function startServer() {
       res.json({ success: true, message: "Reporte enviado por correo." });
 
     } catch (error: any) {
-      console.error("❌ Error generando reporte automático:", error);
+      console.error("❌ Error generando reporte automático:", error?.message || "Error desconocido");
       res.status(500).json({ error: "Error al generar o enviar el reporte mensual." });
     }
   });
@@ -385,11 +409,11 @@ async function startServer() {
   // Actualizar un docente
   app.put("/api/teachers/:id", async (req, res) => {
     const { id } = req.params;
-    const { first_name, last_name, specialty, photo_url } = req.body;
+    const { first_name, last_name, specialty, photo_url, schedule } = req.body;
     try {
       await pool.query(
-        "UPDATE teachers SET first_name = $1, last_name = $2, specialty = $3, photo_url = $4 WHERE id = $5", 
-        [first_name, last_name, specialty, photo_url, id]
+        "UPDATE teachers SET first_name = $1, last_name = $2, specialty = $3, photo_url = $4, schedule = $5 WHERE id = $6", 
+        [first_name, last_name, specialty, photo_url, JSON.stringify(schedule), id]
       );
       res.json({ success: true });
     } catch (e) {
@@ -424,11 +448,11 @@ async function startServer() {
 
   // Add a new teacher (Manual)
   app.post("/api/teachers", async (req, res) => {
-    const { id, first_name, last_name, specialty, photo_url } = req.body;
+    const { id, first_name, last_name, specialty, photo_url, schedule } = req.body;
     try {
       const result = await pool.query(
-        "INSERT INTO teachers (id, first_name, last_name, specialty, photo_url) VALUES ($1, $2, $3, $4, $5) RETURNING *", 
-        [id, first_name, last_name, specialty, photo_url]
+        "INSERT INTO teachers (id, first_name, last_name, specialty, photo_url, schedule) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", 
+        [id, first_name, last_name, specialty, photo_url, JSON.stringify(schedule)]
       );
       res.json({ success: true, teacher: result.rows[0] });
     } catch (e: any) {

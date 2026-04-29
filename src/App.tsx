@@ -35,6 +35,7 @@ interface Teacher {
   last_name: string;
   specialty: string;
   photo_url?: string;
+  schedule?: Record<string, { enabled: boolean; start: string; end: string }>;
 }
 
 interface AttendanceRecord {
@@ -44,6 +45,7 @@ interface AttendanceRecord {
   type: string;
   date: string;
   time: string;
+  status: string;
 }
 
 interface AbsenceRecord {
@@ -57,6 +59,16 @@ interface AbsenceRecord {
 
 type AttendanceType = 'ENTRADA' | 'SALIDA';
 type ActiveTab = 'asistencia' | 'docentes' | 'reportes' | 'faltas' | 'config';
+
+const INITIAL_SCHEDULE = {
+  monday: { enabled: true, start: '08:00', end: '14:00' },
+  tuesday: { enabled: true, start: '08:00', end: '14:00' },
+  wednesday: { enabled: true, start: '08:00', end: '14:00' },
+  thursday: { enabled: true, start: '08:00', end: '14:00' },
+  friday: { enabled: true, start: '08:00', end: '14:00' },
+  saturday: { enabled: false, start: '08:00', end: '14:00' },
+  sunday: { enabled: false, start: '08:00', end: '14:00' },
+};
 
 export default function App() {
   const [adminUser, setAdminUser] = useState<{username: string, name: string} | null>(null);
@@ -85,7 +97,7 @@ export default function App() {
   const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
-  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '' });
+  const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
   const [newAdmin, setNewAdmin] = useState({ username: '', password: '', name: '' });
@@ -378,7 +390,7 @@ export default function App() {
       if (response.ok) {
         toast.success(`Docente registrado con éxito`, { id: loading });
         setSelectedTeacherQR(data.teacher || teacherToSave as Teacher);
-        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '' });
+        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
         setShowAddTeacher(false);
         await fetchData(false);
       } else {
@@ -401,7 +413,8 @@ export default function App() {
           first_name: editingTeacher.first_name, 
           last_name: editingTeacher.last_name, 
           specialty: editingTeacher.specialty,
-          photo_url: editingTeacher.photo_url
+          photo_url: editingTeacher.photo_url,
+          schedule: editingTeacher.schedule
         }),
       });
       if (response.ok) {
@@ -1026,6 +1039,11 @@ export default function App() {
                       </div>
                       <h3 className="font-bold text-lg leading-tight mb-1">{teacher.first_name} {teacher.last_name}</h3>
                       <p className="text-sm text-indigo-600 font-semibold mb-2">{teacher.specialty}</p>
+                      {teacher.schedule && (
+                        <p className="text-[10px] bg-gray-100 px-2 py-1 rounded-lg inline-block mb-2 font-bold text-gray-600">
+                          🕒 Horario Semanal Configurado
+                        </p>
+                      )}
                       <p className="text-xs font-mono text-gray-400 uppercase tracking-widest">{teacher.id}</p>
                       
                       <div className="mt-6 pt-6 border-t border-gray-50 flex justify-end gap-2">
@@ -1179,11 +1197,16 @@ export default function App() {
                             </td>
                             <td className="px-8 py-5">
                               {item.eventType === 'ASISTENCIA' ? (
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${
-                                  item.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
-                                }`}>
-                                  {item.type}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                  <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase text-center ${
+                                    item.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'
+                                  }`}>
+                                    {item.type}
+                                  </span>
+                                  {item.status === 'TARDE' && (
+                                    <span className="bg-red-500 text-white text-[8px] font-black text-center rounded py-0.5">TARDE</span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${
                                   item.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
@@ -1549,6 +1572,41 @@ export default function App() {
                     maxLength={12}
                   />
                 </div>
+                <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Horario Semanal</label>
+                  {Object.entries(newTeacher.schedule).map(([day, data]: [string, any]) => (
+                    <div key={day} className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" checked={data.enabled} 
+                        onChange={e => setNewTeacher({
+                          ...newTeacher, 
+                          schedule: {...newTeacher.schedule, [day]: {...data, enabled: e.target.checked}}
+                        })}
+                      />
+                      <span className="text-[10px] font-bold w-16 uppercase">{day.substring(0,3)}</span>
+                      {data.enabled && (
+                        <>
+                          <input 
+                            type="time" value={data.start}
+                            onChange={e => setNewTeacher({
+                              ...newTeacher, 
+                              schedule: {...newTeacher.schedule, [day]: {...data, start: e.target.value}}
+                            })}
+                            className="text-xs p-1 border rounded"
+                          />
+                          <input 
+                            type="time" value={data.end}
+                            onChange={e => setNewTeacher({
+                              ...newTeacher, 
+                              schedule: {...newTeacher.schedule, [day]: {...data, end: e.target.value}}
+                            })}
+                            className="text-xs p-1 border rounded"
+                          />
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Cargo o Especialidad</label>
                   <input 
@@ -1626,6 +1684,41 @@ export default function App() {
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Número de DNI / Documento de Identidad</label>
                   <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
+                </div>
+                <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Horario Semanal</label>
+                  {Object.entries(editingTeacher.schedule || INITIAL_SCHEDULE).map(([day, data]: [string, any]) => (
+                    <div key={day} className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" checked={data.enabled} 
+                        onChange={e => setEditingTeacher({
+                          ...editingTeacher, 
+                          schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, enabled: e.target.checked}}
+                        })}
+                      />
+                      <span className="text-[10px] font-bold w-16 uppercase">{day.substring(0,3)}</span>
+                      {data.enabled && (
+                        <>
+                          <input 
+                            type="time" value={data.start}
+                            onChange={e => setEditingTeacher({
+                              ...editingTeacher, 
+                              schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, start: e.target.value}}
+                            })}
+                            className="text-xs p-1 border rounded"
+                          />
+                          <input 
+                            type="time" value={data.end}
+                            onChange={e => setEditingTeacher({
+                              ...editingTeacher, 
+                              schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, end: e.target.value}}
+                            })}
+                            className="text-xs p-1 border rounded"
+                          />
+                        </>
+                      )}
+                    </div>
+                  ))}
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Cargo o Especialidad</label>
