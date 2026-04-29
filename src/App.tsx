@@ -70,6 +70,16 @@ const INITIAL_SCHEDULE = {
   sunday: { enabled: false, start: '08:00', end: '14:00' },
 };
 
+const DAY_LABELS: Record<string, string> = {
+  monday: 'Lun',
+  tuesday: 'Mar',
+  wednesday: 'Mié',
+  thursday: 'Jue',
+  friday: 'Vie',
+  saturday: 'Sáb',
+  sunday: 'Dom',
+};
+
 export default function App() {
   const [adminUser, setAdminUser] = useState<{username: string, name: string} | null>(null);
   const [showLogin, setShowLogin] = useState(false);
@@ -1583,7 +1593,7 @@ export default function App() {
                           schedule: {...newTeacher.schedule, [day]: {...data, enabled: e.target.checked}}
                         })}
                       />
-                      <span className="text-[10px] font-bold w-16 uppercase">{day.substring(0,3)}</span>
+                      <span className="text-[10px] font-bold w-16 uppercase">{DAY_LABELS[day] || day}</span>
                       {data.enabled && (
                         <>
                           <input 
@@ -1696,7 +1706,7 @@ export default function App() {
                           schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, enabled: e.target.checked}}
                         })}
                       />
-                      <span className="text-[10px] font-bold w-16 uppercase">{day.substring(0,3)}</span>
+                      <span className="text-[10px] font-bold w-16 uppercase">{DAY_LABELS[day] || day}</span>
                       {data.enabled && (
                         <>
                           <input 
