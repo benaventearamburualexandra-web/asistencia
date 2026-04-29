@@ -246,12 +246,37 @@ async function startServer() {
       if (type === 'ENTRADA' && schedule) {
         // Obtener el día de la semana en español/inglés para el objeto schedule
         const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }).format(now).toLowerCase();
-        const daySchedule = schedule[dayName];
+        const daySchedule = schedule[dayName] as any;
         
-        if (daySchedule && daySchedule.enabled && daySchedule.start) {
+        if (daySchedule && daySchedule.enabled) {
           // Comparación simple de strings "HH:mm"
-          const currentTimeStr = time.substring(0, 5); 
-          if (currentTimeStr > daySchedule.start) {
+          const currentTimeStr = time.substring(0, 5);
+          let referenceStart = null;
+
+          if (Array.isArray(daySchedule.slots) && daySchedule.slots.length > 0) {
+            // Buscamos el bloque de inicio más cercano a la hora actual
+            let minDiff = Infinity;
+            const toMinutes = (t: string) => {
+              const [h, m] = t.split(':').map(Number);
+              return (h || 0) * 60 + (m || 0);
+            };
+            const currentMins = toMinutes(currentTimeStr);
+
+            for (const slot of daySchedule.slots) {
+              if (slot.start) {
+                const slotMins = toMinutes(slot.start);
+                const diff = Math.abs(currentMins - slotMins);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  referenceStart = slot.start;
+                }
+              }
+            }
+          } else if (daySchedule.start) {
+            referenceStart = daySchedule.start;
+          }
+
+          if (referenceStart && currentTimeStr > referenceStart) {
             status = 'TARDE';
           }
         }

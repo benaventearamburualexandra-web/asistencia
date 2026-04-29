@@ -61,13 +61,13 @@ type AttendanceType = 'ENTRADA' | 'SALIDA';
 type ActiveTab = 'asistencia' | 'docentes' | 'reportes' | 'faltas' | 'config';
 
 const INITIAL_SCHEDULE = {
-  monday: { enabled: true, start: '08:00', end: '14:00' },
-  tuesday: { enabled: true, start: '08:00', end: '14:00' },
-  wednesday: { enabled: true, start: '08:00', end: '14:00' },
-  thursday: { enabled: true, start: '08:00', end: '14:00' },
-  friday: { enabled: true, start: '08:00', end: '14:00' },
-  saturday: { enabled: false, start: '08:00', end: '14:00' },
-  sunday: { enabled: false, start: '08:00', end: '14:00' },
+  monday: { enabled: true, slots: [{ start: '07:45', end: '14:05' }] },
+  tuesday: { enabled: true, slots: [{ start: '07:45', end: '14:05' }] },
+  wednesday: { enabled: true, slots: [{ start: '07:45', end: '14:05' }] },
+  thursday: { enabled: true, slots: [{ start: '07:45', end: '14:05' }] },
+  friday: { enabled: true, slots: [{ start: '07:45', end: '14:05' }] },
+  saturday: { enabled: false, slots: [{ start: '07:45', end: '14:05' }] },
+  sunday: { enabled: false, slots: [{ start: '07:45', end: '14:05' }] },
 };
 
 const DAY_LABELS: Record<string, string> = {
@@ -1583,36 +1583,58 @@ export default function App() {
                   />
                 </div>
                 <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Horario Semanal</label>
+                  <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2 block">Horario Semanal de Entrada</label>
                   {Object.entries(newTeacher.schedule).map(([day, data]: [string, any]) => (
-                    <div key={day} className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" checked={data.enabled} 
-                        onChange={e => setNewTeacher({
-                          ...newTeacher, 
-                          schedule: {...newTeacher.schedule, [day]: {...data, enabled: e.target.checked}}
-                        })}
-                      />
-                      <span className="text-[10px] font-bold w-16 uppercase">{DAY_LABELS[day] || day}</span>
-                      {data.enabled && (
-                        <>
-                          <input 
-                            type="time" value={data.start}
-                            onChange={e => setNewTeacher({
-                              ...newTeacher, 
-                              schedule: {...newTeacher.schedule, [day]: {...data, start: e.target.value}}
-                            })}
-                            className="text-xs p-1 border rounded"
-                          />
-                          <input 
-                            type="time" value={data.end}
-                            onChange={e => setNewTeacher({
-                              ...newTeacher, 
-                              schedule: {...newTeacher.schedule, [day]: {...data, end: e.target.value}}
-                            })}
-                            className="text-xs p-1 border rounded"
-                          />
-                        </>
+                    <div key={day} className="flex items-center justify-between p-2 bg-white rounded-xl mb-1 border border-gray-100 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" checked={data.enabled} 
+                          className="w-4 h-4 rounded text-indigo-600"
+                          onChange={e => setNewTeacher({
+                            ...newTeacher, 
+                            schedule: {...newTeacher.schedule, [day]: {...data, enabled: e.target.checked}}
+                          })}
+                        />
+                      <span className="text-xs font-bold w-12 uppercase text-gray-600">{DAY_LABELS[day] || day}</span>
+                      </div>
+
+                      {data.enabled ? (
+                      <div className="flex flex-col gap-2 flex-1 items-end ml-4">
+                        {(data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}]).map((slot: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-[8px] font-bold text-gray-400">INICIO:</span>
+                            <input 
+                              type="time" value={slot.start}
+                              onChange={e => {
+                                const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
+                                newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
+                              }}
+                              className="text-xs p-1 bg-indigo-50 rounded font-bold text-indigo-700 outline-none"
+                            />
+                            {idx > 0 && (
+                              <button type="button" onClick={() => {
+                                const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                                setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: newSlots}}});
+                              }} className="text-red-400 hover:text-red-600">
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const currentSlots = data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}];
+                            setNewTeacher({...newTeacher, schedule: {...newTeacher.schedule, [day]: {...data, slots: [...currentSlots, {start: '07:45', end: '14:05'}]}}});
+                          }}
+                          className="text-[9px] font-bold text-indigo-600 hover:underline"
+                        >
+                          + Agregar Bloque
+                        </button>
+                      </div>
+                      ) : (
+                        <span className="text-[10px] text-gray-300 font-bold uppercase italic">No labora</span>
                       )}
                     </div>
                   ))}
@@ -1696,36 +1718,58 @@ export default function App() {
                   <input type="text" disabled value={editingTeacher.id} className="w-full px-6 py-4 bg-gray-100 border-2 border-gray-100 rounded-2xl text-gray-500 font-mono" />
                 </div>
                 <div className="space-y-3 bg-gray-50 p-4 rounded-3xl border border-gray-100">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Horario Semanal</label>
+                  <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-2 block">Horario Semanal de Entrada</label>
                   {Object.entries(editingTeacher.schedule || INITIAL_SCHEDULE).map(([day, data]: [string, any]) => (
-                    <div key={day} className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" checked={data.enabled} 
-                        onChange={e => setEditingTeacher({
-                          ...editingTeacher, 
-                          schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, enabled: e.target.checked}}
-                        })}
-                      />
-                      <span className="text-[10px] font-bold w-16 uppercase">{DAY_LABELS[day] || day}</span>
-                      {data.enabled && (
-                        <>
-                          <input 
-                            type="time" value={data.start}
-                            onChange={e => setEditingTeacher({
-                              ...editingTeacher, 
-                              schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, start: e.target.value}}
-                            })}
-                            className="text-xs p-1 border rounded"
-                          />
-                          <input 
-                            type="time" value={data.end}
-                            onChange={e => setEditingTeacher({
-                              ...editingTeacher, 
-                              schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, end: e.target.value}}
-                            })}
-                            className="text-xs p-1 border rounded"
-                          />
-                        </>
+                    <div key={day} className="flex items-center justify-between p-2 bg-white rounded-xl mb-1 border border-gray-100 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" checked={data.enabled} 
+                          className="w-4 h-4 rounded text-indigo-600"
+                          onChange={e => setEditingTeacher({
+                            ...editingTeacher, 
+                            schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, enabled: e.target.checked}}
+                          })}
+                        />
+                      <span className="text-xs font-bold w-12 uppercase text-gray-600">{DAY_LABELS[day] || day}</span>
+                      </div>
+
+                      {data.enabled ? (
+                      <div className="flex flex-col gap-2 flex-1 items-end ml-4">
+                        {(data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}]).map((slot: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-[8px] font-bold text-gray-400">INICIO:</span>
+                            <input 
+                              type="time" value={slot.start}
+                              onChange={e => {
+                                const newSlots = [...(data.slots || [{start: data.start, end: data.end}])];
+                                newSlots[idx] = { ...newSlots[idx], start: e.target.value };
+                                setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: newSlots}}});
+                              }}
+                              className="text-xs p-1 bg-indigo-50 rounded font-bold text-indigo-700 outline-none"
+                            />
+                            {idx > 0 && (
+                              <button type="button" onClick={() => {
+                                const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                                setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: newSlots}}});
+                              }} className="text-red-400 hover:text-red-600">
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const currentSlots = data.slots || [{start: data.start || '07:45', end: data.end || '14:05'}];
+                            setEditingTeacher({...editingTeacher, schedule: {...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: {...data, slots: [...currentSlots, {start: '07:45', end: '14:05'}]}}});
+                          }}
+                          className="text-[9px] font-bold text-indigo-600 hover:underline"
+                        >
+                          + Agregar Bloque
+                        </button>
+                      </div>
+                      ) : (
+                        <span className="text-[10px] text-gray-300 font-bold uppercase italic">No labora</span>
                       )}
                     </div>
                   ))}
