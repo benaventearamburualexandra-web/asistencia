@@ -89,6 +89,7 @@ export default function App() {
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
   const [reportWeek, setReportWeek] = useState('');
 
+  const [isSyncing, setIsSyncing] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const scannerRef = useRef<any>(null);
@@ -110,7 +111,14 @@ export default function App() {
       navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => console.error('SW error:', err));
     }
 
-    syncOfflineData().then(() => fetchData(false));
+    const syncAndFetch = async () => {
+      setIsSyncing(true);
+      await syncOfflineData();
+      await fetchData(false);
+      setIsSyncing(false);
+    };
+
+    syncAndFetch();
 
     return () => {
       window.removeEventListener('online', handleStatus);
@@ -149,6 +157,10 @@ export default function App() {
     } catch (err) {
       setScannerError("Error al iniciar cámara. Verifica los permisos del navegador.");
       setIsCameraActive(false);
+      toast.error("No se pudo acceder a la cámara", {
+        icon: '📷',
+        style: { borderRadius: '15px', background: '#333', color: '#fff' }
+      });
     } finally { isInitializingRef.current = false; }
   };
 
@@ -240,12 +252,12 @@ export default function App() {
       const data = [
         ...safeRecords.map((r: any) => ({
           'Tipo': 'ASISTENCIA', 
-          'Docente': r.teacher_name || 'Desconocido', 
+          'Docente': r.teacher_name ? r.teacher_name.toUpperCase() : 'DESCONOCIDO', 
           'DNI': r.teacher_id || '-', 
           'Evento': r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : (r.type || 'S/D'), 
           'Fecha': r.date || '-', 
           'Hora': r.time || '-', 
-          'Estado': r.status || 'PUNTUAL'
+          'Puntualidad': r.status || 'PUNTUAL'
         })),
         ...safeAbsences.map((a: any) => ({
           'Tipo': 'FALTA', 
@@ -441,8 +453,16 @@ export default function App() {
       {/* Sidebar Navigation */}
       <nav className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col h-auto md:h-screen sticky top-0 z-50">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><UserCheck size={24} /></div>
-          <div><h1 className="font-bold text-lg">Asistencia</h1><p className="text-[10px] text-gray-500 font-bold uppercase">Panel Central</p></div>
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+            <UserCheck size={24} />
+          </div>
+          <div>
+            <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
+            <div className="flex items-center gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 px-4 py-2 space-y-1 flex md:flex-col overflow-x-auto">
@@ -466,13 +486,18 @@ export default function App() {
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 h-screen overflow-y-auto p-4 md:p-10">
+      <main className="flex-1 h-screen overflow-y-auto p-4 md:p-8 bg-[#F8F9FA]">
+        <div className="flex justify-between items-center mb-6 md:hidden">
+           <h1 className="font-black text-xl text-indigo-600">EduControl</h1>
+           {isSyncing && <Loader2 className="animate-spin text-indigo-600" size={20} />}
+        </div>
+
         <AnimatePresence mode="wait">
           {activeTab === 'asistencia' && (
             <motion.div key="asistencia" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-3xl font-extrabold text-gray-900">Registro Diario</h2>
+                  <h2 className="text-3xl font-black text-slate-800 tracking-tight">Registro Diario</h2>
                   <p className="text-gray-500 font-medium">Escanea tu QR o ingresa tu DNI</p>
                 </div>
                 <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
@@ -481,7 +506,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden max-w-2xl mx-auto">
+              <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden max-w-2xl mx-auto">
                 <div className="flex border-b border-gray-100">
                   <button onClick={() => setMode('scan')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'scan' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}>
                     <QrCode size={18} /> Escáner
@@ -494,7 +519,7 @@ export default function App() {
                 <div className="p-10">
                   {mode === 'scan' ? (
                     <div className="flex flex-col items-center">
-                      <div className="w-full max-w-xs aspect-square bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden relative">
+                      <div className="w-full max-w-xs aspect-square bg-slate-50 rounded-[2.5rem] border-4 border-dashed border-slate-200 overflow-hidden relative">
                         <div id="reader" className="w-full h-full"></div>
                         {!isCameraActive && (
                           <button onClick={startScanner} className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 hover:bg-white transition-colors">
@@ -508,9 +533,9 @@ export default function App() {
                     <form onSubmit={(e) => { e.preventDefault(); handleAttendance(teacherId); }} className="space-y-6">
                       <div className="text-center space-y-2">
                         <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Ingrese DNI del Docente</label>
-                        <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center" placeholder="DNI..." autoFocus />
+                        <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center shadow-inner" placeholder="00000000" autoFocus />
                       </div>
-                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3">
+                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3">
                         {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} REGISTRAR {attendanceType}
                       </button>
                     </form>
@@ -523,25 +548,25 @@ export default function App() {
           {activeTab === 'docentes' && (
             <motion.div key="docentes" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-extrabold">Docentes</h2>
-                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                <h2 className="text-3xl font-black text-slate-800">Gestión Docente</h2>
+                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
                   <UserPlus size={20} /> Nuevo
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.isArray(teachers) && teachers.map(t => (
-                  <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                  <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-5">
+                      <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100">
                         <Users size={24} />
                       </div>
                       <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-indigo-600 transition-all">
                         <QrCode size={20} />
                       </button>
                     </div>
-                    <h3 className="font-bold text-lg">{t.first_name} {t.last_name}</h3>
+                    <h3 className="font-black text-slate-800 text-lg leading-tight">{t.first_name} {t.last_name}</h3>
                     <p className="text-sm text-indigo-600 font-semibold">{t.specialty}</p>
-                    <p className="text-xs font-mono text-gray-400 mt-2">{t.id}</p>
+                    <p className="text-xs font-mono text-gray-400 mt-3 tracking-widest bg-slate-50 p-2 rounded-lg inline-block">{t.id}</p>
                   </div>
                 ))}
               </div>
@@ -551,8 +576,8 @@ export default function App() {
           {activeTab === 'faltas' && (
             <motion.div key="faltas" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-extrabold">Control de Inasistencias</h2>
-                <button onClick={() => setShowAddAbsence(true)} className="bg-red-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                <h2 className="text-3xl font-black text-slate-800">Inasistencias</h2>
+                <button onClick={() => setShowAddAbsence(true)} className="bg-rose-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-600 transition-all">
                   <AlertCircle size={20} /> Registrar Falta
                 </button>
               </div>
@@ -592,8 +617,8 @@ export default function App() {
           {activeTab === 'reportes' && (
             <motion.div key="reportes" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-extrabold text-gray-900">Reporte Diario</h2>
-                <button onClick={downloadExcel} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all"><Download size={18} />Excel</button>
+                <h2 className="text-3xl font-black text-slate-800">Reportes</h2>
+                <button onClick={downloadExcel} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"><Download size={18} /> Exportar Excel</button>
               </div>
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
@@ -601,9 +626,9 @@ export default function App() {
                   <tbody className="divide-y divide-gray-50">
                     {Array.isArray(combinedRecords) && combinedRecords.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4"><div className="font-bold text-gray-800">{r.teacher_name}</div><div className="text-[10px] text-gray-400">{r.teacher_id}</div></td>
+                        <td className="px-6 py-4"><div className="font-black text-slate-700 uppercase text-sm">{r.teacher_name}</div><div className="text-[10px] font-mono text-gray-400">{r.teacher_id}</div></td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700') : 'bg-orange-100 text-orange-700'}`}>
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                             {r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : r.type}
                           </span>
                         </td>
