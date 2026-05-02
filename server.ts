@@ -558,11 +558,11 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // En Render, server.js se genera dentro de dist/, por lo tanto __dirname ya es la carpeta dist
-    const distPath = __dirname;
-    console.log(`📁 Sirviendo archivos estáticos desde: ${distPath}`);
+    // En producción, el archivo server.js está dentro de la carpeta 'dist'.
+    // Necesitamos servir los archivos estáticos desde esa misma carpeta.
+    console.log(`📁 Sirviendo archivos estáticos desde: ${__dirname}`);
 
-    app.use(express.static(distPath, { 
+    app.use(express.static(__dirname, { 
       maxAge: '1d',
       setHeaders: (res, path) => {
         if (path.endsWith('index.html')) {
@@ -571,7 +571,7 @@ async function startServer() {
       }
     }));
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      res.sendFile(path.join(__dirname, "index.html"));
     });
   }
 
