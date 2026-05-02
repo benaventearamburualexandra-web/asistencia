@@ -134,7 +134,15 @@ export default function App() {
       await html5QrCode.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: 250 },
-        (text) => handleAttendance(text),
+        (text) => {
+          const now = Date.now();
+          // Evitar lecturas múltiples (5 segundos de espera para el mismo ID)
+          if (lastScannedRef.current.id === text && (now - lastScannedRef.current.time) < 5000) return;
+          lastScannedRef.current = { id: text, time: now };
+          
+          if ('vibrate' in navigator) navigator.vibrate(200);
+          handleAttendance(text);
+        },
         () => {}
       );
       setIsCameraActive(true);
@@ -241,7 +249,7 @@ export default function App() {
       type: item.type,
       date: item.manualDate,
       time: item.manualTime,
-      status: 'PENDIENTE'
+      status: item.status || 'PENDIENTE'
     }));
     return [...records, ...mappedPending]
       .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
@@ -266,13 +274,46 @@ export default function App() {
 
   // --- ACCIONES ---
   const handleAttendance = async (id: string) => {
-    if (isSubmitting || !id.trim()) return;
+    const tid = id.trim();
+    if (isSubmitting || !tid) return;
     setIsSubmitting(true);
+    
+    // --- LÓGICA DE TARDANZA INTEGRADA ---
+    let calculatedStatus = 'PUNTUAL';
+    if (attendanceTypeRef.current === 'ENTRADA') {
+      const teacher = teachers.find(t => t.id === tid);
+      if (teacher?.schedule) {
+        const now = new Date();
+        const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'America/Lima' }).format(now).toLowerCase();
+        const daySchedule = teacher.schedule[dayName];
+        
+        if (daySchedule?.enabled) {
+          const currentTime = now.getHours() * 60 + now.getMinutes();
+          let referenceStartMins = null;
+
+          if (daySchedule.slots && daySchedule.slots.length > 0) {
+            // Tomamos el primer bloque del día como referencia de entrada
+            const [h, m] = daySchedule.slots[0].start.split(':').map(Number);
+            referenceStartMins = h * 60 + m;
+          } else if (daySchedule.start) {
+            const [h, m] = daySchedule.start.split(':').map(Number);
+            referenceStartMins = h * 60 + m;
+          }
+
+          // Si pasa aunque sea 1 minuto de la hora de inicio, es TARDE
+          if (referenceStartMins !== null && currentTime > referenceStartMins) {
+            calculatedStatus = 'TARDE';
+          }
+        }
+      }
+    }
+
     const loading = toast.loading(`Registrando ${attendanceTypeRef.current}...`);
     try {
-      const data = await registerAttendance(id.trim(), attendanceTypeRef.current);
+      const data = await registerAttendance(tid, attendanceTypeRef.current, calculatedStatus);
       if (data.success) {
-        toast.success(`${attendanceTypeRef.current} registrada ${data.offline ? '(Local)' : ''}`, { id: loading });
+        const msg = `${attendanceTypeRef.current} ${calculatedStatus} ${data.offline ? '(Modo Offline)' : ''}`;
+        toast.success(msg, { id: loading, duration: 4000 });
         setTeacherId('');
         setOfflineTrigger(prev => prev + 1);
         fetchData();
@@ -336,6 +377,7 @@ export default function App() {
       if (data.success) {
         toast.success(data.offline ? 'Guardado localmente' : 'Registrado', { id: loading });
         setShowAddAbsence(false);
+        setNewAbsence({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
         setOfflineTrigger(prev => prev + 1);
         fetchData();
       }
@@ -545,6 +587,45 @@ export default function App() {
                 <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none" placeholder="Contraseña" />
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg">ENTRAR</button>
                 <button type="button" onClick={() => setShowLogin(false)} className="w-full text-gray-400 font-bold text-sm">Cancelar</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Registrar Falta (Restaurado) */}
+      <AnimatePresence>
+        {showAddAbsence && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl relative">
+              <button onClick={() => setShowAddAbsence(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full"><X size={20} /></button>
+              <h2 className="text-2xl font-extrabold mb-6">Registrar Falta</h2>
+              <form onSubmit={onAddAbsence} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Docente</label>
+                  <select required value={newAbsence.teacherId} onChange={e => setNewAbsence({...newAbsence, teacherId: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500">
+                    <option value="">Seleccionar...</option>
+                    {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Fecha</label>
+                    <input type="date" required value={newAbsence.date} onChange={e => setNewAbsence({...newAbsence, date: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Tipo</label>
+                    <select value={newAbsence.status} onChange={e => setNewAbsence({...newAbsence, status: e.target.value as any})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none">
+                      <option value="INJUSTIFICADA">Injustificada</option>
+                      <option value="JUSTIFICADA">Justificada</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Motivo</label>
+                  <textarea value={newAbsence.reason} onChange={e => setNewAbsence({...newAbsence, reason: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none h-24 resize-none" placeholder="Opcional..." />
+                </div>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg shadow-indigo-100">GUARDAR FALTA</button>
               </form>
             </motion.div>
           </div>

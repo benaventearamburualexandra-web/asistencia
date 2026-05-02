@@ -5,7 +5,7 @@ const ABSENCES_KEY = 'pending_absences';
 /**
  * Intenta registrar la asistencia. Si falla (sin red), la guarda en LocalStorage.
  */
-export async function registerAttendance(teacherId: string, type: 'ENTRADA' | 'SALIDA') {
+export async function registerAttendance(teacherId: string, type: 'ENTRADA' | 'SALIDA', status: string = 'PUNTUAL') {
   const now = new Date();
   const attendanceData = {
     teacherId,
@@ -16,6 +16,7 @@ export async function registerAttendance(teacherId: string, type: 'ENTRADA' | 'S
     manualTime: new Intl.DateTimeFormat('en-GB', { 
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/Lima' 
     }).format(now),
+    status,
     offlineId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
   };
 

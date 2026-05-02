@@ -221,7 +221,7 @@ async function startServer() {
   app.post("/api/attendance", async (req, res) => {
     let lockKey = "";
     try {
-      let { teacherId, type, manualDate, manualTime } = req.body; // type: 'ENTRADA' | 'SALIDA'
+      let { teacherId, type, manualDate, manualTime, status: clientStatus } = req.body; 
       
       if (!teacherId || !type) {
         return res.status(400).json({ error: "Faltan datos requeridos" });
@@ -260,7 +260,7 @@ async function startServer() {
       }).format(now);
 
       // --- LÓGICA DE TARDANZA ---
-      let status = 'PUNTUAL';
+      let status = clientStatus || 'PUNTUAL';
       if (type === 'ENTRADA' && schedule) {
         // Obtener el día de la semana en español/inglés para el objeto schedule
         const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }).format(now).toLowerCase();
