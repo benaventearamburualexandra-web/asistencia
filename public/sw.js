@@ -1,42 +1,45 @@
-const CACHE_NAME = 'asistencia-docente-v2';
+const CACHE_NAME = 'asistencia-docente-v3';
+const OFFLINE_URL = '/index.html';
 
 self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      // Guardamos la página principal inmediatamente al instalar
+      return cache.addAll([OFFLINE_URL, '/', '/manifest.json']);
+    })
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
-  // No interferir con las llamadas a la API (asistencias)
-  if (event.request.url.includes('/api/')) return;
+  // No cacheamos las llamadas a la base de datos (API) porque tienen su propia lógica
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
 
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Si está en caché, lo devolvemos inmediatamente (Carga ultra rápida)
-      if (response) return response;
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
 
-      // Si no está, lo buscamos en internet y lo guardamos para la próxima vez
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200) return networkResponse;
-        
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+      return fetch(event.request)
+        .then((response) => {
+          // Guardamos en caché lo que vamos descargando (estilos, logos, etc)
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => {
+          // Si no hay internet y no está en caché, devolvemos la página principal
+          return caches.match(OFFLINE_URL);
         });
-        
-        return networkResponse;
-      }).catch(() => {
-        // Si falla la red y no hay caché (ej: primera vez sin internet), devolvemos el index.html
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-      });
     })
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(keys.map((key) => key !== CACHE_NAME && caches.delete(key)));
-    })
-  );
+  event.waitUntil(self.clients.claim());
 });

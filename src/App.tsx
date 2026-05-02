@@ -288,12 +288,21 @@ export default function App() {
         }
       };
     }
-  }, [activeTab, mode]);
+    }, [activeTab, mode]);
 
   const fetchData = async (showLoader = false) => {
+    // Paso 1: Cargar datos del caché local inmediatamente para que la pantalla no esté vacía
+    const savedTeachers = localStorage.getItem('cache_teachers');
+    if (savedTeachers) setTeachers(JSON.parse(savedTeachers));
+    
+    if (!navigator.onLine) {
+      setDbStatus('connected');
+      return setIsLoading(false);
+    }
+    
     if (showLoader) setIsLoading(true);
     setDbStatus('checking');
-    
+
     const wakeupTimer = setTimeout(() => {
       if (showLoader) setIsWakingUp(true);
     }, 2000);
@@ -368,6 +377,8 @@ export default function App() {
       console.error("Error fetching data:", error);
       setDbStatus('connected'); // Fallback a datos locales
     } finally {
+      clearTimeout(wakeupTimer);
+      setIsWakingUp(false);
       setIsLoading(false);
     }
   };
