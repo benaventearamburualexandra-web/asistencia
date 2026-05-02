@@ -317,8 +317,6 @@ export default function App() {
         fetch(`/api/admins?t=${timestamp}`)
       ]);
 
-      clearTimeout(wakeupTimer);
-      setIsWakingUp(false);
       
       // Helper to safely parse JSON
       const safeJson = async (resPromise: any) => {
