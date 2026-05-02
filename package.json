@@ -28,7 +28,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.6.0",
-    "sqlite3": "^6.0.1",
+    "sqlite3": "^5.1.7",
     "tailwind-merge": "^3.5.0",
     "tsx": "^4.21.0",
     "xlsx": "^0.18.5"

@@ -1,11 +1,13 @@
 import express from "express";
-import sqlite3 from "sqlite3";
+import sqlite3Pkg from "sqlite3";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import * as XLSX from 'xlsx';
 import nodemailer from 'nodemailer';
+
+const sqlite3 = sqlite3Pkg.verbose();
 
 dotenv.config();
 
