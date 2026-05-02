@@ -8,8 +8,12 @@ export async function registerAttendance(teacherId: string, type: 'ENTRADA' | 'S
   const attendanceData = {
     teacherId,
     type,
-    manualDate: now.toISOString().split('T')[0], // YYYY-MM-DD
-    manualTime: now.toLocaleTimeString('en-GB'),   // HH:mm:ss
+    manualDate: new Intl.DateTimeFormat('en-CA', { 
+      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/Lima' 
+    }).format(now),
+    manualTime: new Intl.DateTimeFormat('en-GB', { 
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'America/Lima' 
+    }).format(now),
     offlineId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
   };
 

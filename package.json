@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --minify --external:vite --external:pg --external:nodemailer --external:xlsx --external:express --external:dotenv",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --minify --external:vite --external:sqlite3 --external:nodemailer --external:xlsx --external:express --external:dotenv",
     "start": "NODE_ENV=production node dist/server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -28,6 +28,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hot-toast": "^2.6.0",
+    "sqlite3": "^6.0.1",
     "tailwind-merge": "^3.5.0",
     "tsx": "^4.21.0",
     "xlsx": "^0.18.5"

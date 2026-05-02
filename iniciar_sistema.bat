@@ -19,3 +19,4 @@ if not exist node_modules (
 echo 3. Iniciando servidor...
 call npm run dev
 pause
+pause

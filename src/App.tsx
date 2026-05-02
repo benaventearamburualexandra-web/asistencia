@@ -97,9 +97,19 @@ export default function App() {
 
   const [teacherId, setTeacherId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [absences, setAbsences] = useState<AbsenceRecord[]>([]);
+  // Inicializar estados desde localStorage para carga instantánea offline
+  const [teachers, setTeachers] = useState<Teacher[]>(() => {
+    const saved = localStorage.getItem('cache_teachers');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [records, setRecords] = useState<AttendanceRecord[]>(() => {
+    const saved = localStorage.getItem('cache_records');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [absences, setAbsences] = useState<AbsenceRecord[]>(() => {
+    const saved = localStorage.getItem('cache_absences');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [admins, setAdmins] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isWakingUp, setIsWakingUp] = useState(false);
@@ -122,6 +132,23 @@ export default function App() {
   const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking' | 'reconnecting'>('checking');
   const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
   const [isWrongPort, setIsWongPort] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Registro de Service Worker para PWA (Funcionar sin internet)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => console.log('SW error:', err));
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    return () => { window.removeEventListener('online', handleStatus); window.removeEventListener('offline', handleStatus); };
+  }, []);
 
   useEffect(() => {
     // Verificar si el usuario entró por el puerto de Vite (5173) en lugar del puerto del servidor (3000)
@@ -316,9 +343,18 @@ export default function App() {
         safeJson(responses[4])
       ]);
 
-      if (Array.isArray(tData)) setTeachers([...tData]);
-      if (Array.isArray(rData)) setRecords(rData);
-      if (Array.isArray(aData)) setAbsences(aData);
+      if (Array.isArray(tData)) {
+        setTeachers([...tData]);
+        localStorage.setItem('cache_teachers', JSON.stringify(tData));
+      }
+      if (Array.isArray(rData)) {
+        setRecords(rData);
+        localStorage.setItem('cache_records', JSON.stringify(rData));
+      }
+      if (Array.isArray(aData)) {
+        setAbsences(aData);
+        localStorage.setItem('cache_absences', JSON.stringify(aData));
+      }
       if (Array.isArray(admData)) setAdmins(admData);
 
       if (responses[0].status === 'rejected' || responses[1].status === 'rejected' || responses[2].status === 'rejected') {
@@ -472,6 +508,11 @@ export default function App() {
       if ('vibrate' in navigator) {
         navigator.vibrate(200);
       }
+      
+      // Feedback sonoro para que el docente sepa que funcionó
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/766/766-preview.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(() => {}); // El navegador puede bloquear el audio si no hay interacción previa
       
       handleAttendance(decodedText);
     } catch (err) {
@@ -745,6 +786,12 @@ export default function App() {
             <Loader2 className="animate-spin mb-4" size={48} />
             <h2 className="text-2xl font-bold mb-2">Despertando el sistema...</h2>
             <p className="text-indigo-100 text-center">Los servicios gratuitos de Render y Supabase tardan unos segundos en iniciar tras inactividad.</p>
+          </div>
+        )}
+
+        {!isOnline && (
+          <div className="fixed top-0 left-0 right-0 z-[150] bg-amber-500 text-white text-[10px] font-black uppercase tracking-[0.2em] py-1 text-center">
+            ⚠️ Modo Sin Conexión: Los datos mostrados son una copia local. Las asistencias se sincronizarán al volver el internet.
           </div>
         )}
 
