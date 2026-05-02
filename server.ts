@@ -1,5 +1,6 @@
 import express from "express";
 import sqlite3Pkg from "sqlite3";
+import pg from "pg";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -7,6 +8,7 @@ import fs from "fs";
 import * as XLSX from 'xlsx';
 import nodemailer from 'nodemailer';
 
+const { Pool } = pg;
 const sqlite3 = sqlite3Pkg.verbose();
 
 dotenv.config();
@@ -14,42 +16,55 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log("🚀 Iniciando configuración de base de datos...");
+// DETECCIÓN DE ENTORNO: Si existe la variable RENDER, estamos en la nube.
+const isRender = process.env.RENDER === 'true';
+let pool: any;
 
-// Configuración de SQLite para funcionamiento 100% OFFLINE
-const dbPath = path.join(__dirname, 'asistencia.db');
-const db = new sqlite3.Database(dbPath);
-db.run("PRAGMA foreign_keys = ON;"); // Habilitar borrado en cascada
+if (isRender) {
+  console.log("☁️ Entorno Render detectado. Usando Supabase (PostgreSQL)...");
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+  });
+} else {
+  console.log("💻 Entorno local detectado. Usando SQLite (Offline)...");
+  const dbPath = path.join(__dirname, 'asistencia.db');
+  const db = new sqlite3.Database(dbPath);
+  db.run("PRAGMA foreign_keys = ON;");
 
-// Emulador de Pool de Postgres para mantener compatibilidad
-const pool = {
-  query: (text: string, params: any[] = []) => {
-    return new Promise((resolve, reject) => {
-      let sql = text.replace(/\$(\d+)/g, '?'); // Convertir $1 a ?
-      if (sql.trim().toUpperCase() === 'BEGIN') sql = 'BEGIN TRANSACTION';
-      
-      const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
-      if (isSelect) {
-        db.all(sql, params, (err, rows) => {
-          if (err) reject(err);
-          else resolve({ rows: rows || [] });
-        });
-      } else {
-        db.run(sql, params, function(err) {
-          if (err) reject(err);
-          else resolve({ rows: [], lastID: this.lastID });
-        });
-      }
-    });
-  },
-  connect: async () => ({
-    query: pool.query,
-    release: () => {}
-  })
-};
+  // Emulador de Pool para SQLite
+  pool = {
+    query: (text: string, params: any[] = []) => {
+      return new Promise((resolve, reject) => {
+        let sql = text.replace(/\$(\d+)/g, '?');
+        if (sql.trim().toUpperCase() === 'BEGIN') sql = 'BEGIN TRANSACTION';
+        const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
+        if (isSelect) {
+          db.all(sql, params, (err, rows) => {
+            if (err) reject(err);
+            else resolve({ rows: rows || [] });
+          });
+        } else {
+          db.run(sql, params, function(err) {
+            if (err) reject(err);
+            else resolve({ rows: [], lastID: this.lastID });
+          });
+        }
+      });
+    },
+    connect: async () => ({
+      query: pool.query,
+      release: () => {}
+    })
+  };
+}
 
 // Initialize Database
 async function initDb() {
+    if (isRender) return; // Supabase ya tiene el esquema, solo inicializamos local
     try {
       console.log(`🔍 Inicializando base de datos local en: ${dbPath}`);
       
