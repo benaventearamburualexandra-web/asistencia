@@ -263,21 +263,24 @@ async function startServer() {
           // Comparación simple de strings "HH:mm"
           const currentTimeStr = time.substring(0, 5);
           let referenceStart = null;
+          let minDiff = Infinity;
 
           if (Array.isArray(daySchedule.slots) && daySchedule.slots.length > 0) {
-            // Buscamos el bloque de inicio más cercano a la hora actual
-            let minDiff = Infinity;
             const toMinutes = (t: string) => {
               const [h, m] = t.split(':').map(Number);
               return (h || 0) * 60 + (m || 0);
             };
             const currentMins = toMinutes(currentTimeStr);
 
+            // Buscamos el bloque cuya hora de inicio sea la más cercana a la actual
             for (const slot of daySchedule.slots) {
               if (slot.start) {
                 const slotMins = toMinutes(slot.start);
-                const diff = Math.abs(currentMins - slotMins);
-                if (diff < minDiff) {
+                // Si estamos dentro del rango del bloque o es el inicio más próximo
+                const diff = currentMins - slotMins;
+                
+                // Consideramos este bloque si la diferencia es razonable (ej. no marcar entrada de la tarde en la mañana)
+                if (Math.abs(diff) < minDiff) {
                   minDiff = diff;
                   referenceStart = slot.start;
                 }
