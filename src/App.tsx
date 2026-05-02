@@ -233,17 +233,30 @@ export default function App() {
   const downloadExcel = async () => {
     const loading = toast.loading('Generando reporte Excel...');
     try {
+      const safeRecords = Array.isArray(combinedRecords) ? combinedRecords : [];
+      const safeAbsences = Array.isArray(combinedAbsences) ? combinedAbsences : [];
+
       const XLSX = await import('xlsx');
       const data = [
-        ...combinedRecords.map((r: any) => ({
-          'Tipo': 'ASISTENCIA', 'Docente': r.teacher_name, 'DNI': r.teacher_id, 
-          'Evento': r.type, 'Fecha': r.date, 'Hora': r.time, 'Estado': r.status
+        ...safeRecords.map((r: any) => ({
+          'Tipo': 'ASISTENCIA', 
+          'Docente': r.teacher_name || 'Desconocido', 
+          'DNI': r.teacher_id || '-', 
+          'Evento': r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : (r.type || 'S/D'), 
+          'Fecha': r.date || '-', 
+          'Hora': r.time || '-', 
+          'Estado': r.status || 'PUNTUAL'
         })),
-        ...combinedAbsences.map((a: any) => ({
-          'Tipo': 'FALTA', 'Docente': a.teacher_name, 'DNI': a.teacher_id, 
-          'Evento': a.status, 'Fecha': a.date, 'Hora': '-', 'Estado': a.offline ? 'PENDIENTE' : 'OK'
+        ...safeAbsences.map((a: any) => ({
+          'Tipo': 'FALTA', 
+          'Docente': a.teacher_name || 'Desconocido', 
+          'DNI': a.teacher_id || '-', 
+          'Evento': a.status || 'FALTA', 
+          'Fecha': a.date || '-', 
+          'Hora': '-', 
+          'Estado': a.offline ? 'PENDIENTE' : 'SINCRONIZADO'
         }))
-      ].sort((a, b) => b.Fecha.localeCompare(a.Fecha));
+      ].sort((a, b) => String(b.Fecha).localeCompare(String(a.Fecha)));
 
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
@@ -516,7 +529,7 @@ export default function App() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {teachers.map(t => (
+                {Array.isArray(teachers) && teachers.map(t => (
                   <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
                     <div className="flex justify-between items-start mb-4">
                       <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
@@ -555,7 +568,7 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {combinedAbsences.map((a, i) => (
+                    {Array.isArray(combinedAbsences) && combinedAbsences.map((a, i) => (
                       <tr key={i} className="hover:bg-gray-50/50">
                         <td className="px-6 py-4 font-bold">{a.teacher_name}</td>
                         <td className="px-6 py-4 text-sm">{a.date}</td>
@@ -586,10 +599,14 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead><tr className="bg-gray-50"><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Docente</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Evento</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Hora</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Estado</th></tr></thead>
                   <tbody className="divide-y divide-gray-50">
-                    {combinedRecords.map((r, i) => (
+                    {Array.isArray(combinedRecords) && combinedRecords.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4"><div className="font-bold text-gray-800">{r.teacher_name}</div><div className="text-[10px] text-gray-400">{r.teacher_id}</div></td>
-                        <td className="px-6 py-4"><span className={`px-2 py-1 rounded-lg text-[10px] font-black ${r.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>{r.type}</span></td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-lg text-[10px] font-black ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700') : 'bg-orange-100 text-orange-700'}`}>
+                            {r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : r.type}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{r.date} {r.time}</td>
                         <td className="px-6 py-4">
                           {r.status === 'PENDIENTE' ? (
