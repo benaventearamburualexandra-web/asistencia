@@ -737,7 +737,6 @@ export default function App() {
   }), [absences, reportWeek, reportMonth]);
 
   return (
-    <>
       <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
         <Toaster position="top-center" />
 
