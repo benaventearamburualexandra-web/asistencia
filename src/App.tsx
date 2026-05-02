@@ -152,6 +152,17 @@ export default function App() {
     } finally { isInitializingRef.current = false; }
   };
 
+  const deleteAbsence = async (id: number | string) => {
+    if (!confirm('¿Eliminar este registro de falta?')) return;
+    try {
+      const res = await fetch(`/api/absences/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Registro eliminado');
+        fetchData();
+      }
+    } catch (e) { toast.error('Error al eliminar'); }
+  };
+
   useEffect(() => {
     if (activeTab === 'asistencia' && mode === 'scan') {
       const timer = setTimeout(() => startScanner(), 500);
@@ -200,10 +211,15 @@ export default function App() {
         safeJson(responses[0]), safeJson(responses[1]), safeJson(responses[2]), safeJson(responses[4])
       ]);
 
-      if (tData) { setTeachers(tData); localStorage.setItem('cache_teachers', JSON.stringify(tData)); }
-      if (rData) { setRecords(rData); localStorage.setItem('cache_records', JSON.stringify(rData)); }
-      if (aData) { setAbsences(aData); localStorage.setItem('cache_absences', JSON.stringify(aData)); }
-      if (admData) { setAdmins(admData); localStorage.setItem('cache_admins', JSON.stringify(admData)); }
+      if (Array.isArray(tData)) { setTeachers(tData); localStorage.setItem('cache_teachers', JSON.stringify(tData)); }
+      if (Array.isArray(rData)) { setRecords(rData); localStorage.setItem('cache_records', JSON.stringify(rData)); }
+      if (Array.isArray(aData)) { setAbsences(aData); localStorage.setItem('cache_absences', JSON.stringify(aData)); }
+      if (Array.isArray(admData)) { 
+        setAdmins(admData); 
+        localStorage.setItem('cache_admins', JSON.stringify(admData)); 
+      } else {
+        setAdmins([]);
+      }
     } catch (error) {
       setDbStatus('connected');
     } finally {
@@ -219,11 +235,11 @@ export default function App() {
     try {
       const XLSX = await import('xlsx');
       const data = [
-        ...combinedRecords.map(r => ({
+        ...combinedRecords.map((r: any) => ({
           'Tipo': 'ASISTENCIA', 'Docente': r.teacher_name, 'DNI': r.teacher_id, 
           'Evento': r.type, 'Fecha': r.date, 'Hora': r.time, 'Estado': r.status
         })),
-        ...combinedAbsences.map(a => ({
+        ...combinedAbsences.map((a: any) => ({
           'Tipo': 'FALTA', 'Docente': a.teacher_name, 'DNI': a.teacher_id, 
           'Evento': a.status, 'Fecha': a.date, 'Hora': '-', 'Estado': a.offline ? 'PENDIENTE' : 'OK'
         }))
@@ -241,33 +257,37 @@ export default function App() {
 
   // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
   const combinedRecords = useMemo(() => {
-    const pending = JSON.parse(localStorage.getItem('pending_attendance') || '[]');
+    const rawPending = localStorage.getItem('pending_attendance');
+    const pending = Array.isArray(JSON.parse(rawPending || '[]')) ? JSON.parse(rawPending || '[]') : [];
+    const safeTeachers = Array.isArray(teachers) ? teachers : [];
     const mappedPending = pending.map((item: any) => ({
       id: item.offlineId,
-      teacher_name: teachers.find(t => t.id === item.teacherId)?.first_name + ' ' + teachers.find(t => t.id === item.teacherId)?.last_name || item.teacherId,
+      teacher_name: safeTeachers.find(t => t.id === item.teacherId) ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` : item.teacherId,
       teacher_id: item.teacherId,
       type: item.type,
       date: item.manualDate,
       time: item.manualTime,
       status: item.status || 'PENDIENTE'
     }));
-    return [...records, ...mappedPending]
+    return [...(Array.isArray(records) ? records : []), ...mappedPending]
       .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
       .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
   }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   const combinedAbsences = useMemo(() => {
-    const pending = JSON.parse(localStorage.getItem('pending_absences') || '[]');
+    const rawPending = localStorage.getItem('pending_absences');
+    const pending = Array.isArray(JSON.parse(rawPending || '[]')) ? JSON.parse(rawPending || '[]') : [];
+    const safeTeachers = Array.isArray(teachers) ? teachers : [];
     const mappedPending = pending.map((item: any) => ({
       id: 'pending-' + Math.random(),
       teacher_id: item.teacherId,
-      teacher_name: teachers.find(t => t.id === item.teacherId)?.first_name + ' ' + teachers.find(t => t.id === item.teacherId)?.last_name || item.teacherId,
+      teacher_name: safeTeachers.find(t => t.id === item.teacherId) ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` : item.teacherId,
       date: item.date,
       status: item.status,
       reason: item.reason,
       offline: true
     }));
-    return [...absences, ...mappedPending]
+    return [...(Array.isArray(absences) ? absences : []), ...mappedPending]
       .filter(a => (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [absences, teachers, reportMonth, reportWeek, offlineTrigger]);
@@ -530,17 +550,23 @@ export default function App() {
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Docente</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Fecha</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Estado</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Motivo</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {combinedAbsences.map((a, i) => (
-                      <tr key={i}>
+                      <tr key={i} className="hover:bg-gray-50/50">
                         <td className="px-6 py-4 font-bold">{a.teacher_name}</td>
                         <td className="px-6 py-4 text-sm">{a.date}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${a.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${String(a.status).includes('JUSTIFICADA') ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
                             {a.status}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-500 max-w-[200px] truncate">{a.reason || '-'}</td>
+                        <td className="px-6 py-4 text-right">
+                           {!a.offline && <button onClick={() => deleteAbsence(a.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>}
                         </td>
                       </tr>
                     ))}
@@ -565,7 +591,15 @@ export default function App() {
                         <td className="px-6 py-4"><div className="font-bold text-gray-800">{r.teacher_name}</div><div className="text-[10px] text-gray-400">{r.teacher_id}</div></td>
                         <td className="px-6 py-4"><span className={`px-2 py-1 rounded-lg text-[10px] font-black ${r.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>{r.type}</span></td>
                         <td className="px-6 py-4 text-sm text-gray-600">{r.date} {r.time}</td>
-                        <td className="px-6 py-4">{r.status === 'PENDIENTE' ? <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-[10px] animate-pulse">SIN SUBIR</span> : <span className="text-emerald-600 font-bold text-[10px]">✓ OK</span>}</td>
+                        <td className="px-6 py-4">
+                          {r.status === 'PENDIENTE' ? (
+                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-[10px] animate-pulse">SIN SUBIR</span>
+                          ) : r.status === 'TARDE' ? (
+                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded font-bold text-[10px]">⚠️ TARDE</span>
+                          ) : (
+                            <span className="text-emerald-600 font-bold text-[10px]">✓ PUNTUAL</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

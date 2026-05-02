@@ -260,8 +260,9 @@ async function startServer() {
       }).format(now);
 
       // --- LÓGICA DE TARDANZA ---
-      let status = clientStatus || 'PUNTUAL';
-      if (type === 'ENTRADA' && schedule) {
+      let status = clientStatus; // Respetamos lo que calculó la app (útil para registros offline)
+      if (!status && type === 'ENTRADA' && schedule) {
+        status = 'PUNTUAL';
         // Obtener el día de la semana en español/inglés para el objeto schedule
         const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone }).format(now).toLowerCase();
         const daySchedule = schedule[dayName] as any;
@@ -374,7 +375,7 @@ async function startServer() {
 
       // 1. Obtener datos de asistencia del mes pasado
       const attendance = await pool.query(`
-        SELECT (t.first_name || ' ' || t.last_name) as teacher_name, a.teacher_id, a.type, a.date, a.time 
+        SELECT (t.first_name || ' ' || t.last_name) as teacher_name, a.teacher_id, a.type, a.date, a.time, a.status 
         FROM attendance a 
         JOIN teachers t ON a.teacher_id = t.id
         WHERE a.date LIKE $1
@@ -394,7 +395,7 @@ async function startServer() {
       const dataForExcel = [
         ...attendance.rows.map(r => ({
           'Tipo': 'ASISTENCIA', 'Docente': r.teacher_name, 'ID': r.teacher_id, 
-          'Evento': r.type, 'Fecha': r.date, 'Detalle': r.time
+          'Evento': r.type, 'Fecha': r.date, 'Detalle': r.time, 'Estado': r.status
         })),
         ...absences.rows.map(a => ({
           'Tipo': 'FALTA', 'Docente': a.teacher_name, 'ID': a.teacher_id, 
@@ -446,7 +447,7 @@ async function startServer() {
   app.get("/api/report", async (req, res) => {
     try {
       const { rows } = await pool.query(`
-        SELECT a.id, (t.first_name || ' ' || t.last_name) as teacher_name, a.teacher_id, a.type, a.date, a.time 
+        SELECT a.id, (t.first_name || ' ' || t.last_name) as teacher_name, a.teacher_id, a.type, a.date, a.time, a.status 
         FROM attendance a 
         JOIN teachers t ON a.teacher_id = t.id
         ORDER BY a.id DESC
