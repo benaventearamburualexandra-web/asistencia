@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --minify --external:vite --external:nodemailer --external:xlsx --external:express --external:dotenv --external:pg --external:sqlite3",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --minify --external:vite --external:nodemailer --external:xlsx --external:express --external:dotenv --external:pg --external:sqlite3 --external:compression --external:negotiator --external:buffer",
     "start": "NODE_ENV=production node dist/server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist",
