@@ -111,6 +111,7 @@ export default function App() {
       navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => console.error('SW error:', err));
     }
 
+    // Diferimos la sincronización para liberar el hilo principal durante la carga inicial
     const syncAndFetch = async () => {
       setIsSyncing(true);
       await syncOfflineData();
@@ -118,11 +119,12 @@ export default function App() {
       setIsSyncing(false);
     };
 
-    syncAndFetch();
+    const initTimeout = setTimeout(syncAndFetch, 1500);
 
     return () => {
       window.removeEventListener('online', handleStatus);
       window.removeEventListener('offline', handleStatus);
+      clearTimeout(initTimeout);
     };
   }, []);
 
@@ -460,7 +462,7 @@ export default function App() {
             <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
             </div>
           </div>
         </div>
@@ -498,7 +500,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight">Registro Diario</h2>
-                  <p className="text-gray-500 font-medium">Escanea tu QR o ingresa tu DNI</p>
+                  <p className="text-slate-600 font-medium">Escanea tu QR o ingresa tu DNI</p>
                 </div>
                 <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
                   <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-500'}`}>ENTRADA</button>
@@ -566,7 +568,7 @@ export default function App() {
                     </div>
                     <h3 className="font-black text-slate-800 text-lg leading-tight">{t.first_name} {t.last_name}</h3>
                     <p className="text-sm text-indigo-600 font-semibold">{t.specialty}</p>
-                    <p className="text-xs font-mono text-gray-400 mt-3 tracking-widest bg-slate-50 p-2 rounded-lg inline-block">{t.id}</p>
+                    <p className="text-xs font-mono text-slate-500 mt-3 tracking-widest bg-slate-100 p-2 rounded-lg inline-block">{t.id}</p>
                   </div>
                 ))}
               </div>
@@ -585,11 +587,11 @@ export default function App() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Docente</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Fecha</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Estado</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Motivo</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase"></th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Docente</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Fecha</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Estado</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Motivo</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">

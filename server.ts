@@ -563,14 +563,21 @@ async function startServer() {
     // Necesitamos servir los archivos estáticos desde esa misma carpeta.
     console.log(`📁 Sirviendo archivos estáticos desde: ${__dirname}`);
 
-    app.use(express.static(__dirname, { 
-      maxAge: '1d',
+    app.use(express.static(distPath, { 
+      maxAge: '7d', // Aumentamos el tiempo de caché para activos estáticos
       setHeaders: (res, path) => {
         if (path.endsWith('index.html')) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         }
       }
     }));
+
+    // Solución al error de SEO: Servir un robots.txt válido
+    app.get("/robots.txt", (req, res) => {
+      res.type("text/plain");
+      res.send("User-agent: *\nAllow: /\nDisallow: /api/");
+    });
+
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "index.html"));
     });
