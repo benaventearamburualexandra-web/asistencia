@@ -482,7 +482,7 @@ async function startServer() {
       // 2. Ahora que no hay dependencias, eliminamos al docente
       await pool.query("DELETE FROM teachers WHERE id = $1", [id]);
 
-      await pool.query('COMMIT');
+      await pool.query(isRender ? 'COMMIT' : 'COMMIT');
       res.json({ success: true });
     } catch (e: any) {
       await pool.query('ROLLBACK');
@@ -557,8 +557,8 @@ async function startServer() {
   } else {
     // En producción, server.js está DENTRO de dist. 
     // Aseguramos que la ruta apunte siempre a la carpeta que contiene los archivos del build
-    const distPath = path.resolve(__dirname, '..', 'dist');
-    const finalPath = fs.existsSync(distPath) ? distPath : process.cwd();
+    const distPath = path.join(__dirname, '..', 'dist');
+    const finalPath = fs.existsSync(distPath) ? distPath : __dirname;
 
     console.log(`📁 Sirviendo archivos estáticos desde: ${finalPath}`);
 
