@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, getISOWeek, getISOWeekYear } from 'date-fns';
-import { registerAttendance, syncOfflineData } from '../offlineSync';
+import { registerAttendance, syncOfflineData, registerTeacher, registerAbsence } from '../offlineSync';
 import * as XLSX from 'xlsx';
 
 interface Teacher {
@@ -299,7 +299,8 @@ export default function App() {
     const savedTeachers = localStorage.getItem('cache_teachers');
     if (savedTeachers) setTeachers(JSON.parse(savedTeachers));
     
-    if (!navigator.onLine) {
+    // Solo saltamos el fetch si no estamos en localhost (donde el servidor es la propia laptop)
+    if (!navigator.onLine && window.location.hostname !== 'localhost') {
       setDbStatus('connected');
       return setIsLoading(false);
     }
@@ -438,21 +439,17 @@ export default function App() {
 
     const loading = toast.loading('Guardando docente...');
     try {
-      const response = await fetch('/api/teachers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(teacherToSave),
-      });
-      const data = await response.json();
+      const data = await registerTeacher(teacherToSave);
       
-      if (response.ok) {
-        toast.success(`Docente registrado con éxito`, { id: loading });
-        setSelectedTeacherQR(data.teacher || teacherToSave as Teacher);
+      if (data.success) {
+        const msg = data.offline ? 'Guardado localmente' : 'Registrado con éxito';
+        toast.success(msg, { id: loading });
+        setSelectedTeacherQR(teacherToSave as Teacher);
         setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
         setShowAddTeacher(false);
-        await fetchData(false);
+        fetchData(false);
       } else {
-        toast.error(data.error || 'Error al guardar', { id: loading });
+        throw new Error();
       }
     } catch (error) {
       toast.error('Error de conexión', { id: loading });
@@ -673,18 +670,14 @@ export default function App() {
     if (!newAbsence.teacherId || !newAbsence.date) return;
 
     try {
-      const response = await fetch('/api/absences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAbsence),
-      });
-      if (response.ok) {
-        toast.success('Falta registrada');
+      const data = await registerAbsence(newAbsence);
+      if (data.success) {
+        toast.success(data.offline ? 'Falta guardada localmente' : 'Falta registrada');
         setNewAbsence({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
         setShowAddAbsence(false);
         fetchData();
       } else {
-        toast.error('Error al registrar falta');
+        throw new Error();
       }
     } catch (error) {
       toast.error('Error de conexión');
@@ -707,6 +700,25 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const loading = toast.loading('Autenticando...');
+
+    // Intentar login offline si no hay conexión
+    if (!navigator.onLine) {
+      const storedAdmins = JSON.parse(localStorage.getItem('cache_admins') || '[]');
+      const foundAdmin = storedAdmins.find((adm: any) => adm.username === loginUsername && adm.password === password);
+      if (foundAdmin) {
+        setAdminUser(foundAdmin);
+        localStorage.setItem('admin_session', JSON.stringify(foundAdmin));
+        setShowLogin(false);
+        setPassword('');
+        toast.success(`Bienvenido (Offline), ${foundAdmin.name}`, { id: loading });
+      } else {
+        toast.error('Credenciales inválidas (Offline)', { id: loading });
+      }
+      setIsLoading(false); // Asegurarse de que el loader se oculte
+      return;
+    }
+
+    // Login online
     try {
       const response = await fetch('/api/login', {
         method: 'POST',
@@ -741,6 +753,7 @@ export default function App() {
         setShowAddAdmin(false);
         setNewAdmin({ username: '', password: '', name: '' });
         fetchData();
+        localStorage.setItem('cache_admins', JSON.stringify(admins)); // Actualizar caché de admins
       }
     } catch (error) {
       toast.error('Error al guardar');
@@ -790,6 +803,34 @@ export default function App() {
     if (reportMonth) return a.date.startsWith(reportMonth);
     return true;
   }), [absences, reportWeek, reportMonth]);
+
+  const allRecords = useMemo(() => {
+    const pending = JSON.parse(localStorage.getItem('pending_attendance') || '[]');
+    const combined = [...records, ...pending.map((item: any) => ({
+      id: item.offlineId,
+      teacher_name: teachers.find(t => t.id === item.teacherId)?.first_name + ' ' + teachers.find(t => t.id === item.teacherId)?.last_name || item.teacherId,
+      teacher_id: item.teacherId,
+      type: item.type,
+      date: item.manualDate,
+      time: item.manualTime,
+      status: 'PENDIENTE' // O algún otro estado para indicar que es offline
+    }))];
+    return combined.sort((a, b) => new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime());
+  }, [records, teachers]);
+
+  const allAbsences = useMemo(() => {
+    const pending = JSON.parse(localStorage.getItem('pending_absences') || '[]');
+    const combined = [...absences, ...pending.map((item: any) => ({
+      id: item.offlineId,
+      teacher_name: teachers.find(t => t.id === item.teacherId)?.first_name + ' ' + teachers.find(t => t.id === item.teacherId)?.last_name || item.teacherId,
+      teacher_id: item.teacherId,
+      date: item.date,
+      status: item.status,
+      reason: item.reason,
+      offline: true // Para indicar que es offline
+    }))];
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [absences, teachers]);
 
   return (
       <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
@@ -1177,7 +1218,12 @@ export default function App() {
                         <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Asistencias</span>
                       </div>
                       <div className="text-4xl font-black text-gray-800">
-                        {filteredRecords.filter(r => r.type === 'ENTRADA').length}
+                        {allRecords.filter(r => r.type === 'ENTRADA').length}
+                        {pendingAttendance.length > 0 && (
+                          <span className="absolute top-4 right-4 bg-yellow-400 text-white text-xs font-bold px-2 py-1 rounded-full">
+                            +{pendingAttendance.length} Pendientes
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-400 mt-2 font-medium">Entradas registradas {reportWeek ? 'esta semana' : 'este mes'}</p>
                     </div>
@@ -1190,7 +1236,12 @@ export default function App() {
                         <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Faltas Injust.</span>
                       </div>
                       <div className="text-4xl font-black text-gray-800">
-                        {filteredAbsences.filter(a => a.status === 'INJUSTIFICADA').length}
+                        {allAbsences.filter(a => a.status === 'INJUSTIFICADA').length}
+                        {pendingAbsences.length > 0 && (
+                          <span className="absolute top-4 right-4 bg-yellow-400 text-white text-xs font-bold px-2 py-1 rounded-full">
+                            +{pendingAbsences.length} Pendientes
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-gray-400 mt-2 font-medium">Inasistencias sin justificar</p>
                     </div>
@@ -1203,7 +1254,7 @@ export default function App() {
                         <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Faltas Just.</span>
                       </div>
                       <div className="text-4xl font-black text-gray-800">
-                        {filteredAbsences.filter(a => a.status === 'JUSTIFICADA').length}
+                        {allAbsences.filter(a => a.status === 'JUSTIFICADA').length}
                       </div>
                       <p className="text-xs text-gray-400 mt-2 font-medium">Inasistencias justificadas</p>
                     </div>
@@ -1233,8 +1284,8 @@ export default function App() {
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                           {[
-                            ...filteredRecords.map(r => ({ ...r, eventType: 'ASISTENCIA' })),
-                            ...filteredAbsences.map(a => ({ ...a, eventType: 'FALTA' }))
+                            ...allRecords.map(r => ({ ...r, eventType: 'ASISTENCIA' })),
+                            ...allAbsences.map(a => ({ ...a, eventType: 'FALTA' }))
                           ]
                             .sort((a, b) => b.date.localeCompare(a.date))
                             .map((item: any, idx) => (
@@ -1249,7 +1300,7 @@ export default function App() {
                                       <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase text-center ${item.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
                                         {item.type}
                                       </span>
-                                      {item.status === 'TARDE' && (
+                                      {(item.status === 'TARDE' || item.status === 'PENDIENTE') && (
                                         <span className="bg-red-500 text-white text-[8px] font-black text-center rounded py-0.5">TARDE</span>
                                       )}
                                     </div>
@@ -1260,7 +1311,7 @@ export default function App() {
                                   )}
                                 </td>
                                 <td className="px-8 py-5 text-sm font-medium text-gray-500">{item.date}</td>
-                                <td className="px-8 py-5 text-sm font-bold text-gray-700">
+                                <td className="px-8 py-5 text-sm font-bold text-gray-700 flex items-center gap-2">
                                   {item.eventType === 'ASISTENCIA' ? item.time : (item.reason || '-')}
                                 </td>
                               </tr>
@@ -1313,7 +1364,7 @@ export default function App() {
                             <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest" aria-label="Acciones"></th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50"> 
                           {(Array.isArray(absences) ? absences : []).map((abs) => (
                             <tr key={abs.id} className="hover:bg-gray-50/30 transition-colors">
                               <td className="px-8 py-5">

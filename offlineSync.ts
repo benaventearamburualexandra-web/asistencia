@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'pending_attendance';
+const TEACHERS_KEY = 'pending_teachers';
+const ABSENCES_KEY = 'pending_absences';
 
 /**
  * Intenta registrar la asistencia. Si falla (sin red), la guarda en LocalStorage.
@@ -36,26 +38,80 @@ export async function registerAttendance(teacherId: string, type: 'ENTRADA' | 'S
 }
 
 /**
+ * Guarda un nuevo docente localmente si no hay red.
+ */
+export async function registerTeacher(teacherData: any) {
+  try {
+    const res = await fetch('/api/teachers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(teacherData),
+    });
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch (error) {
+    const pending = JSON.parse(localStorage.getItem(TEACHERS_KEY) || '[]');
+    pending.push(teacherData);
+    localStorage.setItem(TEACHERS_KEY, JSON.stringify(pending));
+    return { success: true, offline: true };
+  }
+}
+
+/**
+ * Guarda una falta localmente si no hay red.
+ */
+export async function registerAbsence(absenceData: any) {
+  try {
+    const res = await fetch('/api/absences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(absenceData),
+    });
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch (error) {
+    const pending = JSON.parse(localStorage.getItem(ABSENCES_KEY) || '[]');
+    pending.push(absenceData);
+    localStorage.setItem(ABSENCES_KEY, JSON.stringify(pending));
+    return { success: true, offline: true };
+  }
+}
+
+/**
  * Envía los registros pendientes al servidor cuando vuelve la conexión.
  */
 export async function syncOfflineData() {
   if (!navigator.onLine) return;
+  
   const pending = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  if (pending.length === 0) return;
+  const pendingTeachers = JSON.parse(localStorage.getItem(TEACHERS_KEY) || '[]');
+  const pendingAbsences = JSON.parse(localStorage.getItem(ABSENCES_KEY) || '[]');
 
-  console.log(`🔄 Sincronizando ${pending.length} registros...`);
+  // Sincronizar Asistencias
   for (const item of [...pending]) {
-    try {
-      const res = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
-      });
-      if (res.ok) {
-        const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(current.filter((i: any) => i.offlineId !== item.offlineId)));
-      }
-    } catch (e) { break; } // Detener si el servidor sigue caído
+    const res = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
+    if (res.ok) {
+      const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(current.filter((i: any) => i.offlineId !== item.offlineId)));
+    }
+  }
+
+  // Sincronizar Docentes
+  for (const teacher of [...pendingTeachers]) {
+    const res = await fetch('/api/teachers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(teacher) });
+    if (res.ok) {
+      const current = JSON.parse(localStorage.getItem(TEACHERS_KEY) || '[]');
+      localStorage.setItem(TEACHERS_KEY, JSON.stringify(current.filter((t: any) => t.id !== teacher.id)));
+    }
+  }
+
+  // Sincronizar Faltas
+  for (const abs of [...pendingAbsences]) {
+    const res = await fetch('/api/absences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(abs) });
+    if (res.ok) {
+      const current = JSON.parse(localStorage.getItem(ABSENCES_KEY) || '[]');
+      localStorage.setItem(ABSENCES_KEY, JSON.stringify(current.filter((a: any) => a.teacherId !== abs.teacherId || a.date !== abs.date)));
+    }
   }
 }
 

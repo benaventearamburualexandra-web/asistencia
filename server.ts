@@ -1,124 +1,112 @@
 import express from "express";
-import sqlite3Pkg from "sqlite3";
 import pg from "pg";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from "node:fs";
+import fs from "fs";
 import * as XLSX from 'xlsx';
 import nodemailer from 'nodemailer';
 
 const { Pool } = pg;
-const sqlite3 = sqlite3Pkg.verbose();
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// DETECCIÓN DE ENTORNO: Si existe la variable RENDER, estamos en la nube.
-const isRender = process.env.RENDER === 'true';
-let pool: any;
+const connectionString = process.env.DATABASE_URL;
 
-if (isRender) {
-  console.log("☁️ Entorno Render detectado. Usando Supabase (PostgreSQL)...");
-  pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
-  });
-} else {
-  console.log("💻 Entorno local detectado. Usando SQLite (Offline)...");
-  const dbPath = path.join(__dirname, 'asistencia.db');
-  const db = new sqlite3.Database(dbPath);
-  db.run("PRAGMA foreign_keys = ON;");
-
-  // Emulador de Pool para SQLite
-  pool = {
-    query: (text: string, params: any[] = []) => {
-      return new Promise((resolve, reject) => {
-        let sql = text.replace(/\$(\d+)/g, '?');
-        if (sql.trim().toUpperCase() === 'BEGIN') sql = 'BEGIN TRANSACTION';
-        const isSelect = sql.trim().toUpperCase().startsWith('SELECT');
-        if (isSelect) {
-          db.all(sql, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve({ rows: rows || [] });
-          });
-        } else {
-          db.run(sql, params, function(err) {
-            if (err) reject(err);
-            else resolve({ rows: [], lastID: this.lastID });
-          });
-        }
-      });
-    },
-    connect: async () => ({
-      query: pool.query,
-      release: () => {}
-    })
-  };
+if (!connectionString) {
+  console.warn("⚠️ ADVERTENCIA: DATABASE_URL no está definida en las variables de entorno.");
 }
+
+console.log("🚀 Iniciando configuración de base de datos...");
+
+const pool = new Pool({
+  connectionString: connectionString,
+  ssl: connectionString?.includes("supabase") || process.env.NODE_ENV === "production" 
+    ? { rejectUnauthorized: false } 
+    : false,
+  max: 20, // Aumentamos conexiones para evitar bloqueos
+  min: 2,  // Mantenemos conexiones mínimas abiertas
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 30000, // 30s para dar tiempo a Supabase a despertar
+  maxUses: 7500, // Ayuda a refrescar conexiones y evitar fugas de memoria
+  allowExitOnIdle: true,
+  application_name: 'asistencia_docente'
+}) as pg.Pool;
+
+// Manejo de errores de conexión para evitar que el servidor se cuelgue
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
 
 // Initialize Database
 async function initDb() {
-    if (isRender) return; // Supabase ya tiene el esquema, solo inicializamos local
+  let retries = 5;
+  while (retries > 0) {
+    let client;
     try {
-      console.log(`🔍 Inicializando base de datos local en: ${dbPath}`);
+      console.log(`🔍 Intentando conectar con Supabase... (Intentos restantes: ${retries})`);
+      client = await pool.connect();
+      console.log("✅ Conexión exitosa a PostgreSQL.");
       
-      const schema = `
+      await client.query(`
         CREATE TABLE IF NOT EXISTS teachers (
           id TEXT PRIMARY KEY,
           first_name TEXT NOT NULL,
           last_name TEXT NOT NULL,
           specialty TEXT NOT NULL,
           photo_url TEXT,
-          schedule TEXT DEFAULT '{}'
+          schedule JSONB DEFAULT '{}'::jsonb
         );
+        ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
         
         CREATE TABLE IF NOT EXISTS attendance (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          id SERIAL PRIMARY KEY,
           teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
           type TEXT,
           date TEXT,
           time TEXT,
           status TEXT DEFAULT 'PUNTUAL'
         );
+        ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
   
         CREATE TABLE IF NOT EXISTS absences (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          id SERIAL PRIMARY KEY,
           teacher_id TEXT REFERENCES teachers(id) ON DELETE CASCADE,
           date TEXT,
           status TEXT,
           reason TEXT
         );
+        ALTER TABLE absences ENABLE ROW LEVEL SECURITY;
   
         CREATE TABLE IF NOT EXISTS admins (
           username TEXT PRIMARY KEY,
           password TEXT NOT NULL,
           name TEXT NOT NULL
         );
-      `;
+        ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
+      `);
 
-      for (const cmd of schema.split(';').filter(c => c.trim())) {
-        await pool.query(cmd);
-      }
-
+      // Asegurar que la columna existe si la tabla ya estaba creada
+      await client.query("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS photo_url TEXT");
+      await client.query("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS schedule JSONB DEFAULT '{}'::jsonb");
+      await client.query("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'PUNTUAL'");
+  
       // Seed default data if needed
-      const { rows } = await pool.query("SELECT COUNT(*) as count FROM teachers");
+      const { rows } = await client.query("SELECT COUNT(*) as count FROM teachers");
       if (parseInt(rows[0].count) === 0) {
-        await pool.query(`
+        await client.query(`
           INSERT INTO teachers (id, first_name, last_name, specialty) 
           VALUES ('DOC-001', 'Juan', 'Pérez', 'Matemática'), ('DOC-002', 'María', 'García', 'Comunicación')
         `);
       }
 
       // Crear administrador por defecto si no existe ninguno
-      const { rows: adminCount } = await pool.query("SELECT COUNT(*) as count FROM admins");
+      const { rows: adminCount } = await client.query("SELECT COUNT(*) as count FROM admins");
       if (parseInt(adminCount[0].count) === 0) {
-        await pool.query(
+        await client.query(
           "INSERT INTO admins (username, password, name) VALUES ($1, $2, $3)",
           ["admin", "admin123", "Administrador Principal"]
         );
@@ -126,21 +114,23 @@ async function initDb() {
       }
 
     } catch (err) {
-      console.error(`❌ Error al inicializar base de datos local:`, err);
+      retries--;
+      const errorMsg = err instanceof Error ? err.message : String(err).substring(0, 500);
+      console.error(`❌ Error de conexión o inicialización de DB: ${errorMsg}. Reintentando...`);
+      if (retries > 0) await new Promise(res => setTimeout(res, 5000)); // Esperar 5s antes de reintentar
+      else {
+        console.warn("⚠️ No se pudo conectar a la DB. El servidor funcionará en modo degradado (Offline-Ready).");
+        // No lanzamos error para permitir que startServer continúe
+      }
+    } finally {
+      if (client) client.release();
     }
+  }
 }
 
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
-
-  // Cabeceras de Seguridad Recomendadas (Best Practices)
-  app.use((req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co;");
-    next();
-  });
 
   // Aumentamos el límite para permitir el envío de fotos en Base64
   app.use(express.json({ limit: '10mb' }));
@@ -238,8 +228,7 @@ async function startServer() {
       if (teacherRes.rows.length === 0) {
         return res.status(404).json({ error: `El ID "${tid}" no está registrado en el sistema.` });
       }
-      let { name: teacherName, schedule } = teacherRes.rows[0];
-      if (typeof schedule === 'string') schedule = JSON.parse(schedule);
+      const { name: teacherName, schedule } = teacherRes.rows[0];
 
       const now = new Date();
       const timeZone = 'America/Lima';
@@ -339,12 +328,7 @@ async function startServer() {
   app.get("/api/teachers", async (req, res) => {
     try {
       const { rows } = await pool.query("SELECT * FROM teachers");
-      // SQLite devuelve strings, parseamos el horario
-      const parsedRows = rows.map(r => ({
-        ...r,
-        schedule: typeof r.schedule === 'string' ? JSON.parse(r.schedule) : r.schedule
-      }));
-      res.json(parsedRows);
+      res.json(rows);
     } catch (err) {
       res.status(500).json({ error: "Error al obtener docentes" });
     }
