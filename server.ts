@@ -134,6 +134,14 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
+  // Cabeceras de Seguridad Recomendadas (Best Practices)
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co;");
+    next();
+  });
+
   // Aumentamos el límite para permitir el envío de fotos en Base64
   app.use(express.json({ limit: '10mb' }));
 

@@ -1,38 +1,42 @@
-const CACHE_NAME = 'asistencia-v1';
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
+const CACHE_NAME = 'asistencia-docente-v2';
 
-// Instalar y guardar archivos básicos
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
+  self.skipWaiting();
 });
 
-// Estrategia: Intentar red, si falla usar caché
 self.addEventListener('fetch', (event) => {
-  // No cachear peticiones de API (la asistencia ya tiene su propia lógica en App.tsx)
-  if (event.request.url.includes('/api/')) {
-    return;
-  }
+  // No interferir con las llamadas a la API (asistencias)
+  if (event.request.url.includes('/api/')) return;
 
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
+    caches.match(event.request).then((response) => {
+      // Si está en caché, lo devolvemos inmediatamente (Carga ultra rápida)
+      if (response) return response;
+
+      // Si no está, lo buscamos en internet y lo guardamos para la próxima vez
+      return fetch(event.request).then((networkResponse) => {
+        if (!networkResponse || networkResponse.status !== 200) return networkResponse;
+        
+        const responseToCache = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache);
+        });
+        
+        return networkResponse;
+      }).catch(() => {
+        // Si falla la red y no hay caché (ej: primera vez sin internet), devolvemos el index.html
+        if (event.request.mode === 'navigate') {
+          return caches.match('/');
+        }
+      });
     })
   );
 });
 
-// Limpiar caches antiguos
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
+      return Promise.all(keys.map((key) => key !== CACHE_NAME && caches.delete(key)));
     })
   );
 });

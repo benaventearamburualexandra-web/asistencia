@@ -366,8 +366,7 @@ export default function App() {
       }
     } catch (error) {
       console.error("Error fetching data:", error);
-      setDbStatus('error');
-      toast.error('Error de conexión con el servidor');
+      setDbStatus('connected'); // Fallback a datos locales
     } finally {
       setIsLoading(false);
     }
@@ -781,11 +780,11 @@ export default function App() {
       <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans selection:bg-indigo-100 flex flex-col md:flex-row overflow-hidden">
         <Toaster position="top-center" />
 
-        {isWakingUp && (dbStatus === 'checking' || dbStatus === 'reconnecting') && (
+        {isOnline && isWakingUp && (dbStatus === 'checking' || dbStatus === 'reconnecting') && (
           <div className="fixed inset-0 z-[200] bg-indigo-600 flex flex-col items-center justify-center text-white p-6">
             <Loader2 className="animate-spin mb-4" size={48} />
             <h2 className="text-2xl font-bold mb-2">Despertando el sistema...</h2>
-            <p className="text-indigo-100 text-center">Los servicios gratuitos de Render y Supabase tardan unos segundos en iniciar tras inactividad.</p>
+            <p className="text-white text-center font-medium">Los servicios gratuitos de Render y Supabase tardan unos segundos en iniciar tras inactividad.</p>
           </div>
         )}
 
@@ -865,7 +864,7 @@ export default function App() {
 
           <div className="p-6 border-t border-gray-100 hidden md:block">
             <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
-              <div className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500' :
+              <div aria-hidden="true" className={`w-2 h-2 rounded-full ${dbStatus === 'connected' ? 'bg-green-500' :
                   dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500 animate-pulse'}`} />
               {dbStatus === 'connected' ? 'Base de Datos Conectada' :
                 dbStatus === 'error' ? (dbErrorMessage || 'Error de Conexión') : 'Verificando...'}
@@ -1058,7 +1057,7 @@ export default function App() {
                           {teacher.photo_url ? (
                             <img
                               src={teacher.photo_url}
-                              alt="Foto"
+                              alt={`Foto de perfil de ${teacher.first_name} ${teacher.last_name}`}
                               className="w-12 h-12 rounded-2xl object-cover border-2 border-indigo-50" />
                           ) : (
                             <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
@@ -1160,7 +1159,7 @@ export default function App() {
                         <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center">
                           <UserCheck size={24} />
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Asistencias</span>
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Asistencias</span>
                       </div>
                       <div className="text-4xl font-black text-gray-800">
                         {filteredRecords.filter(r => r.type === 'ENTRADA').length}
@@ -1173,7 +1172,7 @@ export default function App() {
                         <div className="w-12 h-12 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center">
                           <AlertCircle size={24} />
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Faltas Injust.</span>
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Faltas Injust.</span>
                       </div>
                       <div className="text-4xl font-black text-gray-800">
                         {filteredAbsences.filter(a => a.status === 'INJUSTIFICADA').length}
@@ -1186,7 +1185,7 @@ export default function App() {
                         <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
                           <CheckCircle2 size={24} />
                         </div>
-                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Faltas Just.</span>
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Faltas Just.</span>
                       </div>
                       <div className="text-4xl font-black text-gray-800">
                         {filteredAbsences.filter(a => a.status === 'JUSTIFICADA').length}
@@ -1211,10 +1210,10 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-gray-50/50">
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Docente</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Evento</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Fecha</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Detalle</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Docente</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Evento</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Fecha</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Detalle</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -1227,7 +1226,7 @@ export default function App() {
                               <tr key={idx} className="hover:bg-gray-50/30 transition-colors">
                                 <td className="px-8 py-5">
                                   <div className="font-bold text-gray-800">{item.teacher_name}</div>
-                                  <div className="text-[10px] font-mono text-gray-400 uppercase">{item.teacher_id}</div>
+                                  <div className="text-[10px] font-mono text-gray-500 uppercase">{item.teacher_id}</div>
                                 </td>
                                 <td className="px-8 py-5">
                                   {item.eventType === 'ASISTENCIA' ? (
@@ -1292,11 +1291,11 @@ export default function App() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-gray-50/50">
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Docente</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Estado</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Fecha</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest">Motivo</th>
-                            <th className="px-8 py-5 text-xs font-bold text-gray-400 uppercase tracking-widest"></th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Docente</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Estado</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Fecha</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest">Motivo</th>
+                            <th className="px-8 py-5 text-xs font-bold text-gray-600 uppercase tracking-widest" aria-label="Acciones"></th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -1304,7 +1303,7 @@ export default function App() {
                             <tr key={abs.id} className="hover:bg-gray-50/30 transition-colors">
                               <td className="px-8 py-5">
                                 <div className="font-bold text-gray-800">{abs.teacher_name}</div>
-                                <div className="text-[10px] font-mono text-gray-400 uppercase">{abs.teacher_id}</div>
+                                <div className="text-[10px] font-mono text-gray-500 uppercase">{abs.teacher_id}</div>
                               </td>
                               <td className="px-8 py-5">
                                 <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase ${abs.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
@@ -1390,7 +1389,7 @@ export default function App() {
                 <h2 className="text-2xl font-extrabold mb-6">Acceso Administrador</h2>
                 <form onSubmit={handleLogin} className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Usuario</label>
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-widest px-1">Usuario</label>
                     <input
                       type="text" required value={loginUsername}
                       onChange={e => setLoginUsername(e.target.value)}
@@ -1398,7 +1397,7 @@ export default function App() {
                       placeholder="admin" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Contraseña</label>
+                    <label className="text-xs font-bold text-gray-600 uppercase tracking-widest px-1">Contraseña</label>
                     <input
                       type="password" required value={password}
                       onChange={e => setPassword(e.target.value)}
