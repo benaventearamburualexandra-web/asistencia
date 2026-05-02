@@ -23,12 +23,15 @@ let pool: any;
 
 if (isRender) {
   console.log("☁️ Entorno Render detectado. Usando Supabase (PostgreSQL)...");
+  if (!process.env.DATABASE_URL) {
+    console.error("❌ ERROR: DATABASE_URL no está definida en las variables de entorno de Render.");
+  }
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 20000,
   });
 } else {
   console.log("💻 Entorno local detectado. Usando SQLite (Offline)...");
@@ -555,14 +558,11 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // En producción, server.js está DENTRO de dist. 
-    // Aseguramos que la ruta apunte siempre a la carpeta que contiene los archivos del build
-    const distPath = path.join(__dirname, '..', 'dist');
-    const finalPath = fs.existsSync(distPath) ? distPath : __dirname;
+    // En Render, server.js se genera dentro de dist/, por lo tanto __dirname ya es la carpeta dist
+    const distPath = __dirname;
+    console.log(`📁 Sirviendo archivos estáticos desde: ${distPath}`);
 
-    console.log(`📁 Sirviendo archivos estáticos desde: ${finalPath}`);
-
-    app.use(express.static(finalPath, { 
+    app.use(express.static(distPath, { 
       maxAge: '1d',
       setHeaders: (res, path) => {
         if (path.endsWith('index.html')) {

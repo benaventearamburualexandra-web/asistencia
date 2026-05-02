@@ -226,7 +226,7 @@ export default function App() {
 
   const downloadExcel = async () => {
     const XLSX = await import('xlsx');
-    const data = allRecords.map(r => ({ 'Docente': r.teacher_name, 'DNI': r.teacher_id, 'Evento': r.type, 'Fecha': r.date, 'Hora': r.time, 'Estado': r.status }));
+    const data = combinedRecords.map(r => ({ 'Docente': r.teacher_name, 'DNI': r.teacher_id, 'Evento': r.type, 'Fecha': r.date, 'Hora': r.time, 'Estado': r.status }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reporte");
