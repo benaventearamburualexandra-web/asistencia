@@ -9,3 +9,7 @@ services:
         value: 20
       - key: PORT
         value: 3000
+      - key: RENDER
+        value: true
+      - key: DATABASE_URL
+        sync: false # Esto te pedirá el enlace de Supabase en el panel de Render
