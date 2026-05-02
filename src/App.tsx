@@ -16,7 +16,7 @@ interface Teacher {
   last_name: string;
   specialty: string;
   photo_url?: string;
-  schedule?: Record<string, { enabled: boolean; slots?: { start: string, end: string }[] }>;
+  schedule?: Record<string, { enabled: boolean; start?: string; end?: string; slots?: { start: string, end: string }[] }>;
 }
 
 interface AttendanceRecord {
@@ -67,6 +67,7 @@ export default function App() {
   const [offlineTrigger, setOfflineTrigger] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isWakingUp, setIsWakingUp] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Estados con carga de Caché Local inmediata
@@ -77,13 +78,24 @@ export default function App() {
 
   const [showLogin, setShowLogin] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
+  const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
   const [loginUsername, setLoginUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
+  const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
   const [selectedTeacherQR, setSelectedTeacherQR] = useState<Teacher | null>(null);
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [reportWeek, setReportWeek] = useState('');
+
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const scannerRef = useRef<any>(null);
+  const isInitializingRef = useRef<boolean>(false);
+  const lastScannedRef = useRef<{ id: string, time: number }>({ id: '', time: 0 });
+  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking' | 'reconnecting'>('checking');
+  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     attendanceTypeRef.current = attendanceType;
@@ -94,7 +106,10 @@ export default function App() {
     window.addEventListener('online', handleStatus);
     window.addEventListener('offline', handleStatus);
     
-    // Sincronizar al iniciar
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => console.error('SW error:', err));
+    }
+
     syncOfflineData().then(() => fetchData(false));
 
     return () => {
@@ -103,39 +118,121 @@ export default function App() {
     };
   }, []);
 
+  // --- FUNCIONES DE QR (CARGA DINÁMICA) ---
+  const startScanner = async () => {
+    if (isInitializingRef.current) return;
+    isInitializingRef.current = true;
+    const element = document.getElementById("reader");
+    if (!element) { isInitializingRef.current = false; return; }
+    setScannerError(null);
+
+    try {
+      if (scannerRef.current) { try { await scannerRef.current.stop(); } catch (e) {} }
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const html5QrCode = new Html5Qrcode("reader");
+      scannerRef.current = html5QrCode;
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        (text) => handleAttendance(text),
+        () => {}
+      );
+      setIsCameraActive(true);
+    } catch (err) {
+      setScannerError("Error al iniciar cámara. Verifica los permisos del navegador.");
+      setIsCameraActive(false);
+    } finally { isInitializingRef.current = false; }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'asistencia' && mode === 'scan') {
+      const timer = setTimeout(() => startScanner(), 500);
+      return () => { clearTimeout(timer); scannerRef.current?.stop().catch(() => {}); };
+    }
+  }, [activeTab, mode]);
+
   const fetchData = async (showLoader = false) => {
-    // Si estamos offline y no estamos en la laptop local, no hacemos fetch
     if (!navigator.onLine && window.location.hostname !== 'localhost') {
+      setDbStatus('connected');
       setIsLoading(false);
       return;
     }
-
+    
     if (showLoader) setIsLoading(true);
+    setDbStatus('checking');
+    let wakeupTimer = setTimeout(() => { if (showLoader) setIsWakingUp(true); }, 2000);
+
     try {
       const timestamp = Date.now();
       const responses = await Promise.allSettled([
         fetch(`/api/teachers?t=${timestamp}`),
         fetch(`/api/report?t=${timestamp}`),
         fetch(`/api/absences?t=${timestamp}`),
+        fetch(`/api/health?t=${timestamp}`),
         fetch(`/api/admins?t=${timestamp}`)
       ]);
 
-      const safeJson = async (res: any) => (res.status === 'fulfilled' && res.value.ok) ? res.value.json() : null;
-      const [tData, rData, aData, admData] = await Promise.all(responses.map(safeJson));
+      const safeJson = async (resPromise: any) => {
+        if (resPromise.status === 'fulfilled' && resPromise.value.ok) {
+          try { return await resPromise.value.json(); } catch (e) { return null; }
+        }
+        return null;
+      };
+
+      const hResPromise = responses[3];
+      if (hResPromise.status === 'fulfilled' && hResPromise.value.ok) {
+        const health = await safeJson(hResPromise);
+        if (health && (health.status === 'ok' || health.db === 'connected')) {
+          setDbStatus('connected');
+          setDbErrorMessage(null);
+        }
+      }
+
+      const [tData, rData, aData, admData] = await Promise.all([
+        safeJson(responses[0]), safeJson(responses[1]), safeJson(responses[2]), safeJson(responses[4])
+      ]);
 
       if (tData) { setTeachers(tData); localStorage.setItem('cache_teachers', JSON.stringify(tData)); }
       if (rData) { setRecords(rData); localStorage.setItem('cache_records', JSON.stringify(rData)); }
       if (aData) { setAbsences(aData); localStorage.setItem('cache_absences', JSON.stringify(aData)); }
       if (admData) { setAdmins(admData); localStorage.setItem('cache_admins', JSON.stringify(admData)); }
-    } catch (e) {
-      console.warn("Fallo al conectar con el servidor, usando datos locales.");
+    } catch (error) {
+      setDbStatus('connected');
     } finally {
+      clearTimeout(wakeupTimer);
+      setIsWakingUp(false);
       setIsLoading(false);
     }
   };
 
-  // --- LÓGICA DE DATOS COMBINADOS (REMOTO + PENDIENTES) ---
-  const allRecords = useMemo(() => {
+  // --- EXPORTAR EXCEL (DINÁMICO) ---
+  const downloadExcel = async () => {
+    const loading = toast.loading('Generando reporte Excel...');
+    try {
+      const XLSX = await import('xlsx');
+      const data = [
+        ...combinedRecords.map(r => ({
+          'Tipo': 'ASISTENCIA', 'Docente': r.teacher_name, 'DNI': r.teacher_id, 
+          'Evento': r.type, 'Fecha': r.date, 'Hora': r.time, 'Estado': r.status
+        })),
+        ...combinedAbsences.map(a => ({
+          'Tipo': 'FALTA', 'Docente': a.teacher_name, 'DNI': a.teacher_id, 
+          'Evento': a.status, 'Fecha': a.date, 'Hora': '-', 'Estado': a.offline ? 'PENDIENTE' : 'OK'
+        }))
+      ].sort((a, b) => b.Fecha.localeCompare(a.Fecha));
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+      XLSX.writeFile(wb, `Reporte_Asistencia_${reportMonth || 'General'}.xlsx`);
+      toast.success('Excel descargado', { id: loading });
+    } catch (error) {
+      toast.error('Error al generar Excel', { id: loading });
+    }
+  };
+
+  // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
+  const combinedRecords = useMemo(() => {
     const pending = JSON.parse(localStorage.getItem('pending_attendance') || '[]');
     const mappedPending = pending.map((item: any) => ({
       id: item.offlineId,
@@ -146,10 +243,12 @@ export default function App() {
       time: item.manualTime,
       status: 'PENDIENTE'
     }));
-    return [...records, ...mappedPending].sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
-  }, [records, teachers, offlineTrigger]);
+    return [...records, ...mappedPending]
+      .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+  }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
-  const allAbsences = useMemo(() => {
+  const combinedAbsences = useMemo(() => {
     const pending = JSON.parse(localStorage.getItem('pending_absences') || '[]');
     const mappedPending = pending.map((item: any) => ({
       id: 'pending-' + Math.random(),
@@ -160,24 +259,27 @@ export default function App() {
       reason: item.reason,
       offline: true
     }));
-    return [...absences, ...mappedPending].sort((a, b) => b.date.localeCompare(a.date));
-  }, [absences, teachers, offlineTrigger]);
+    return [...absences, ...mappedPending]
+      .filter(a => (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [absences, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   // --- ACCIONES ---
   const handleAttendance = async (id: string) => {
     if (isSubmitting || !id.trim()) return;
     setIsSubmitting(true);
-    const loading = toast.loading(`Registrando ${attendanceType}...`);
+    const loading = toast.loading(`Registrando ${attendanceTypeRef.current}...`);
     try {
-      const data = await registerAttendance(id.trim(), attendanceType);
+      const data = await registerAttendance(id.trim(), attendanceTypeRef.current);
       if (data.success) {
-        toast.success(`${attendanceType} registrada ${data.offline ? '(Local)' : ''}`, { id: loading });
+        toast.success(`${attendanceTypeRef.current} registrada ${data.offline ? '(Local)' : ''}`, { id: loading });
         setTeacherId('');
         setOfflineTrigger(prev => prev + 1);
         fetchData();
-      }
-    } catch (e) { toast.error('Error al registrar', { id: loading }); }
-    finally { setIsSubmitting(false); }
+      } else throw new Error(data.error);
+    } catch (error: any) {
+      toast.error(error.message || 'Error de conexión', { id: loading });
+    } finally { setIsSubmitting(false); }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -185,7 +287,7 @@ export default function App() {
     const loading = toast.loading('Verificando...');
     
     const tryOfflineLogin = () => {
-      const found = admins.find(a => a.username === loginUsername && a.password === password);
+      const found = admins.find((a: any) => a.username === loginUsername && a.password === password);
       if (found || (loginUsername === 'admin' && password === 'admin123')) {
         const user = found || { username: 'admin', name: 'Administrador Local' };
         setAdminUser(user);
@@ -214,24 +316,42 @@ export default function App() {
   const onAddTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     const loading = toast.loading('Guardando...');
-    const data = await registerTeacher(newTeacher);
-    if (data.success) {
-      toast.success(data.offline ? 'Guardado en memoria (Offline)' : 'Docente registrado', { id: loading });
-      setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
-      setShowAddTeacher(false);
-      setOfflineTrigger(prev => prev + 1);
-      fetchData();
-    } else toast.error('Error al guardar', { id: loading });
+    try {
+      const data = await registerTeacher(newTeacher);
+      if (data.success) {
+        toast.success(data.offline ? 'Guardado en memoria (Offline)' : 'Docente registrado', { id: loading });
+        setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
+        setShowAddTeacher(false);
+        setOfflineTrigger(prev => prev + 1);
+        fetchData();
+      }
+    } catch (e) { toast.error('Error al guardar', { id: loading }); }
   };
 
-  const downloadExcel = async () => {
-    const XLSX = await import('xlsx');
-    const data = combinedRecords.map(r => ({ 'Docente': r.teacher_name, 'DNI': r.teacher_id, 'Evento': r.type, 'Fecha': r.date, 'Hora': r.time, 'Estado': r.status }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-    XLSX.writeFile(wb, `Reporte_Asistencia.xlsx`);
+  const onAddAbsence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const loading = toast.loading('Registrando...');
+    try {
+      const data = await registerAbsence(newAbsence);
+      if (data.success) {
+        toast.success(data.offline ? 'Guardado localmente' : 'Registrado', { id: loading });
+        setShowAddAbsence(false);
+        setOfflineTrigger(prev => prev + 1);
+        fetchData();
+      }
+    } catch (e) { toast.error('Error', { id: loading }); }
   };
+
+  const isDateInWeek = (dateStr: string, weekStr: string) => {
+    try {
+      const [y, w] = weekStr.split('-W');
+      const d = parseISO(dateStr);
+      return getISOWeek(d) === parseInt(w) && getISOWeekYear(d) === parseInt(y);
+    } catch (e) {
+      return false;
+    }
+  };
+  const handleLogout = () => { setAdminUser(null); localStorage.removeItem('admin_session'); setActiveTab('asistencia'); toast.success('Sesión cerrada'); };
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1A1A1A] font-sans flex flex-col md:flex-row overflow-hidden">
@@ -239,7 +359,7 @@ export default function App() {
       
       {!isOnline && (
         <div className="fixed top-0 left-0 right-0 z-[150] bg-amber-500 text-white text-[10px] font-black uppercase py-1 text-center shadow-lg">
-          ⚠️ MODO OFFLINE: Los datos se guardan en el dispositivo y se subirán al detectar internet.
+          ⚠️ MODO OFFLINE ACTIVO: Los datos se guardan en el dispositivo y se subirán al detectar internet.
         </div>
       )}
 
@@ -263,7 +383,7 @@ export default function App() {
 
         <div className="p-4 border-t border-gray-100">
           {adminUser ? (
-            <button onClick={() => { setAdminUser(null); localStorage.removeItem('admin_session'); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50"><LogOut size={20} /><span>Cerrar Sesión</span></button>
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50"><LogOut size={20} /><span>Cerrar Sesión</span></button>
           ) : (
             <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-50"><Settings size={20} /><span>Admin Login</span></button>
           )}
@@ -276,23 +396,114 @@ export default function App() {
           {activeTab === 'asistencia' && (
             <motion.div key="asistencia" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-3xl font-extrabold text-gray-900">Registro de Asistencia</h2>
+                <div>
+                  <h2 className="text-3xl font-extrabold text-gray-900">Registro Diario</h2>
+                  <p className="text-gray-500 font-medium">Escanea tu QR o ingresa tu DNI</p>
+                </div>
                 <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
                   <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-500'}`}>ENTRADA</button>
                   <button onClick={() => setAttendanceType('SALIDA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'SALIDA' ? 'bg-orange-500 text-white shadow-lg' : 'text-gray-500'}`}>SALIDA</button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-10 max-w-2xl mx-auto">
-                <form onSubmit={(e) => { e.preventDefault(); handleAttendance(teacherId); }} className="space-y-6">
-                  <div className="text-center space-y-2">
-                    <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Ingrese DNI del Docente</label>
-                    <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center" placeholder="DNI..." autoFocus />
-                  </div>
-                  <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3">
-                    {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} REGISTRAR {attendanceType}
+              <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 overflow-hidden max-w-2xl mx-auto">
+                <div className="flex border-b border-gray-100">
+                  <button onClick={() => setMode('scan')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'scan' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}>
+                    <QrCode size={18} /> Escáner
                   </button>
-                </form>
+                  <button onClick={() => setMode('manual')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'manual' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}>
+                    <Keyboard size={18} /> Manual
+                  </button>
+                </div>
+
+                <div className="p-10">
+                  {mode === 'scan' ? (
+                    <div className="flex flex-col items-center">
+                      <div className="w-full max-w-xs aspect-square bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 overflow-hidden relative">
+                        <div id="reader" className="w-full h-full"></div>
+                        {!isCameraActive && (
+                          <button onClick={startScanner} className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 hover:bg-white transition-colors">
+                            <Camera size={40} className="text-indigo-600" />
+                            <span className="font-bold text-gray-700">Activar Cámara</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={(e) => { e.preventDefault(); handleAttendance(teacherId); }} className="space-y-6">
+                      <div className="text-center space-y-2">
+                        <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Ingrese DNI del Docente</label>
+                        <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-gray-50 border-2 border-gray-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center" placeholder="DNI..." autoFocus />
+                      </div>
+                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-extrabold text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-3">
+                        {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} REGISTRAR {attendanceType}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'docentes' && (
+            <motion.div key="docentes" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-extrabold">Docentes</h2>
+                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                  <UserPlus size={20} /> Nuevo
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {teachers.map(t => (
+                  <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                        <Users size={24} />
+                      </div>
+                      <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-indigo-600 transition-all">
+                        <QrCode size={20} />
+                      </button>
+                    </div>
+                    <h3 className="font-bold text-lg">{t.first_name} {t.last_name}</h3>
+                    <p className="text-sm text-indigo-600 font-semibold">{t.specialty}</p>
+                    <p className="text-xs font-mono text-gray-400 mt-2">{t.id}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'faltas' && (
+            <motion.div key="faltas" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-extrabold">Control de Inasistencias</h2>
+                <button onClick={() => setShowAddAbsence(true)} className="bg-red-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                  <AlertCircle size={20} /> Registrar Falta
+                </button>
+              </div>
+              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Docente</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Fecha</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {combinedAbsences.map((a, i) => (
+                      <tr key={i}>
+                        <td className="px-6 py-4 font-bold">{a.teacher_name}</td>
+                        <td className="px-6 py-4 text-sm">{a.date}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${a.status === 'JUSTIFICADA' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                            {a.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </motion.div>
           )}
@@ -307,7 +518,7 @@ export default function App() {
                 <table className="w-full text-left border-collapse">
                   <thead><tr className="bg-gray-50"><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Docente</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Evento</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Hora</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Estado</th></tr></thead>
                   <tbody className="divide-y divide-gray-50">
-                    {allRecords.map((r, i) => (
+                    {combinedRecords.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4"><div className="font-bold text-gray-800">{r.teacher_name}</div><div className="text-[10px] text-gray-400">{r.teacher_id}</div></td>
                         <td className="px-6 py-4"><span className={`px-2 py-1 rounded-lg text-[10px] font-black ${r.type === 'ENTRADA' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>{r.type}</span></td>
@@ -323,7 +534,7 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* Login Modal */}
+      {/* Modals Login */}
       <AnimatePresence>
         {showLogin && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -334,6 +545,87 @@ export default function App() {
                 <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none" placeholder="Contraseña" />
                 <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg">ENTRAR</button>
                 <button type="button" onClick={() => setShowLogin(false)} className="w-full text-gray-400 font-bold text-sm">Cancelar</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Nuevo Docente (Optimizado) */}
+      <AnimatePresence>
+        {showAddTeacher && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowAddTeacher(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="bg-white rounded-[2.5rem] w-full max-w-md relative z-10 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+              <form onSubmit={onAddTeacher} className="flex flex-col h-full overflow-hidden">
+                <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 bg-white">
+                  <h2 className="text-2xl font-extrabold">Nuevo Docente</h2>
+                  <button type="button" onClick={() => setShowAddTeacher(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={24} /></button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
+                    <input type="text" required value={newTeacher.first_name} onChange={e => setNewTeacher({ ...newTeacher, first_name: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Apellidos</label>
+                    <input type="text" required value={newTeacher.last_name} onChange={e => setNewTeacher({ ...newTeacher, last_name: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">DNI / ID</label>
+                    <input type="text" required value={newTeacher.id} onChange={e => setNewTeacher({ ...newTeacher, id: e.target.value.replace(/\D/g, '') })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none font-mono" maxLength={12} />
+                  </div>
+                  
+                  {/* Gestión de Horarios Complejos */}
+                  <div className="space-y-4 bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                    <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest block mb-2">Horario de Trabajo por Día</label>
+                    {Object.entries(newTeacher.schedule).map(([day, data]: [string, any]) => (
+                      <div key={day} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <input type="checkbox" checked={data.enabled} onChange={e => setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, enabled: e.target.checked } } })} className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500" />
+                            <span className="font-bold text-gray-700 uppercase text-xs">{DAY_LABELS[day]}</span>
+                          </div>
+                          {data.enabled && (
+                            <button type="button" onClick={() => {
+                              const currentSlots = data.slots || [];
+                              setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: [...currentSlots, { start: '07:45', end: '14:05' }] } } });
+                            }} className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors">+ Bloque</button>
+                          )}
+                        </div>
+
+                        {data.enabled && (data.slots || []).map((slot: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 pt-2 border-t border-gray-50">
+                            <div className="grid grid-cols-2 gap-2 flex-1">
+                              <input type="time" value={slot.start} onChange={e => {
+                                const newSlots = [...data.slots]; newSlots[idx].start = e.target.value;
+                                setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                              }} className="text-xs p-2 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-indigo-500" />
+                              <input type="time" value={slot.end} onChange={e => {
+                                const newSlots = [...data.slots]; newSlots[idx].end = e.target.value;
+                                setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                              }} className="text-xs p-2 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                            <button type="button" onClick={() => {
+                              const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                              setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
+                            }} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Especialidad o Cargo</label>
+                    <input type="text" required value={newTeacher.specialty} onChange={e => setNewTeacher({ ...newTeacher, specialty: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                  </div>
+                </div>
+
+                <div className="p-8 pt-4 border-t border-gray-50 bg-white">
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">Guardar Docente</button>
+                </div>
               </form>
             </motion.div>
           </div>
