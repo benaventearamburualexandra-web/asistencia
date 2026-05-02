@@ -465,25 +465,22 @@ async function startServer() {
   // Eliminar un docente
   app.delete("/api/teachers/:id", async (req, res) => {
     const { id } = req.params;
-    const client = await pool.connect();
     try {
-      await client.query('BEGIN');
+      await pool.query(isRender ? 'BEGIN' : 'BEGIN TRANSACTION');
 
       // 1. Eliminamos primero los registros vinculados en las tablas de asistencia y faltas
-      await client.query("DELETE FROM attendance WHERE teacher_id = $1", [id]);
-      await client.query("DELETE FROM absences WHERE teacher_id = $1", [id]);
+      await pool.query("DELETE FROM attendance WHERE teacher_id = $1", [id]);
+      await pool.query("DELETE FROM absences WHERE teacher_id = $1", [id]);
 
       // 2. Ahora que no hay dependencias, eliminamos al docente
-      await client.query("DELETE FROM teachers WHERE id = $1", [id]);
+      await pool.query("DELETE FROM teachers WHERE id = $1", [id]);
 
-      await client.query('COMMIT');
+      await pool.query('COMMIT');
       res.json({ success: true });
     } catch (e: any) {
-      await client.query('ROLLBACK');
+      await pool.query('ROLLBACK');
       console.error("Error al eliminar docente en cascada:", e);
       res.status(500).json({ error: "Error al eliminar docente y sus registros asociados" });
-    } finally {
-      client.release();
     }
   });
 
@@ -492,7 +489,7 @@ async function startServer() {
     const { id, first_name, last_name, specialty, photo_url, schedule } = req.body;
     try {
       await pool.query(
-        "INSERT INTO teachers (id, first_name, last_name, specialty, photo_url, schedule) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", 
+        "INSERT INTO teachers (id, first_name, last_name, specialty, photo_url, schedule) VALUES ($1, $2, $3, $4, $5, $6)", 
         [id, first_name, last_name, specialty, photo_url, JSON.stringify(schedule)]
       );
       const { rows } = await pool.query("SELECT * FROM teachers WHERE id = $1", [id]);

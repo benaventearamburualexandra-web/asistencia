@@ -81,7 +81,11 @@ const DAY_LABELS: Record<string, string> = {
 };
 
 export default function App() {
-  const [adminUser, setAdminUser] = useState<{username: string, name: string} | null>(null);
+  // Recuperar sesión de administrador localmente si existe
+  const [adminUser, setAdminUser] = useState<{username: string, name: string} | null>(() => {
+    const saved = localStorage.getItem('admin_session');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [showLogin, setShowLogin] = useState(false);
   const [loginUsername, setLoginUsername] = useState('admin');
   const [password, setPassword] = useState('');
@@ -712,6 +716,7 @@ export default function App() {
       const data = await response.json();
       if (response.ok) {
         setAdminUser(data.user);
+        localStorage.setItem('admin_session', JSON.stringify(data.user));
         setShowLogin(false);
         setPassword('');
         toast.success(`Bienvenido, ${data.user.name}`, { id: loading });
@@ -744,6 +749,7 @@ export default function App() {
 
   const handleLogout = () => {
     setAdminUser(null);
+    localStorage.removeItem('admin_session');
     setActiveTab('asistencia');
     toast.success('Sesión cerrada');
   };
