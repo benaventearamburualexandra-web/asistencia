@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import sqlite3Pkg from "sqlite3";
 import pg from "pg";
 import dotenv from "dotenv";
@@ -133,6 +134,9 @@ async function initDb() {
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
+
+  // Comprimir todas las respuestas para mejorar el rendimiento
+  app.use(compression());
 
   // Cabeceras de Seguridad Recomendadas (Best Practices)
   app.use((req, res, next) => {

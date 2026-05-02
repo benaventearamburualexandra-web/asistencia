@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
 import { Toaster, toast } from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -27,7 +26,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { format, parseISO, getISOWeek, getISOWeekYear } from 'date-fns';
 import { registerAttendance, syncOfflineData, registerTeacher, registerAbsence } from '../offlineSync';
-import * as XLSX from 'xlsx';
 
 interface Teacher {
   id: string;
@@ -133,7 +131,7 @@ export default function App() {
   const [selectedTeacherQR, setSelectedTeacherQR] = useState<Teacher | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<any>(null);
   const isInitializingRef = useRef<boolean>(false);
   const lastScannedRef = useRef<{ id: string, time: number }>({ id: '', time: 0 });
   const [reportMonth, setReportMonth] = useState<string>(new Date().toISOString().slice(0, 7));
@@ -147,9 +145,13 @@ export default function App() {
     window.addEventListener('online', handleStatus);
     window.addEventListener('offline', handleStatus);
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => console.log('SW error:', err));
-      });
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => {
+          console.log('SW registrado con éxito:', reg.scope);
+        })
+        .catch(err => {
+          console.log('Error al registrar SW:', err);
+        });
     }
     syncOfflineData().then(() => fetchData(false));
     return () => { 
@@ -227,6 +229,44 @@ export default function App() {
     }
   };
 
+  const downloadReport = async () => {
+    const loading = toast.loading('Generando archivo Excel...');
+    try {
+      // Carga dinámica de la librería pesada solo cuando se necesita
+      const XLSX = await import('xlsx');
+      
+      const data = [
+        ...combinedRecords.map(r => ({
+          'Tipo': 'ASISTENCIA',
+          'Docente': r.teacher_name,
+          'ID': r.teacher_id,
+          'Evento': r.type,
+          'Fecha': r.date,
+          'Hora': r.time,
+          'Estado': r.status
+        })),
+        ...combinedAbsences.map(a => ({
+          'Tipo': 'FALTA',
+          'Docente': a.teacher_name,
+          'ID': a.teacher_id,
+          'Evento': a.status,
+          'Fecha': a.date,
+          'Hora': '-',
+          'Estado': a.offline ? 'PENDIENTE' : 'SINCRONIZADO'
+        }))
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+      XLSX.writeFile(wb, `Reporte_Asistencia_${reportMonth || 'General'}.xlsx`);
+      
+      toast.success('Reporte descargado', { id: loading });
+    } catch (error) {
+      toast.error('Error al generar Excel', { id: loading });
+    }
+  };
+
   // --- LÓGICA DE DATOS COMBINADOS (ONLINE + PENDIENTES OFFLINE) ---
   const combinedRecords = useMemo(() => {
     const pending = JSON.parse(localStorage.getItem('pending_attendance') || '[]');
@@ -283,6 +323,8 @@ export default function App() {
 
     try {
       if (scannerRef.current) { try { await scannerRef.current.stop(); await scannerRef.current.clear(); } catch (e) {} }
+      // Carga dinámica de la librería del escáner
+      const { Html5Qrcode } = await import('html5-qrcode');
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
       await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: (w, h) => ({ width: Math.min(w, h) * 0.75, height: Math.min(w, h) * 0.75 }), aspectRatio: 1.0 }, onScanSuccess, onScanFailure);
@@ -543,7 +585,7 @@ export default function App() {
                     <div key={teacher.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all relative group">
                       <div className="flex items-start justify-between mb-4">
                         <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                          {teacher.photo_url ? <img src={teacher.photo_url} alt="Foto" className="w-full h-full object-cover rounded-2xl" /> : <Users size={24} />}
+                          {teacher.photo_url ? <img src={teacher.photo_url} alt="Foto" className="w-full h-full object-cover rounded-2xl" loading="lazy" /> : <Users size={24} />}
                         </div>
                         <button onClick={() => setSelectedTeacherQR(teacher)} className="p-3 bg-gray-50 rounded-2xl text-gray-400 hover:text-indigo-600 transition-all"><QrCode size={20} /></button>
                       </div>
@@ -569,7 +611,7 @@ export default function App() {
                   </div>
                   <div className="flex flex-wrap gap-3">
                     <input type="month" value={reportMonth} onChange={(e) => { setReportMonth(e.target.value); setReportWeek(''); }} className="bg-white px-4 py-2 rounded-xl border border-gray-200 text-sm font-bold outline-none" />
-                    <button onClick={() => {}} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"><Download size={18} />Excel</button>
+                    <button onClick={downloadReport} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"><Download size={18} />Excel</button>
                   </div>
                 </div>
 
