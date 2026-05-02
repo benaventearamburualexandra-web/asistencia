@@ -556,14 +556,13 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // En producción, server.js está DENTRO de dist. 
-    // Intentamos buscar la carpeta dist en el directorio actual o uno arriba.
-    const distPath = fs.existsSync(path.join(process.cwd(), "dist")) 
-      ? path.join(process.cwd(), "dist")
-      : process.cwd();
+    // Aseguramos que la ruta apunte siempre a la carpeta que contiene los archivos del build
+    const distPath = path.resolve(__dirname, '..', 'dist');
+    const finalPath = fs.existsSync(distPath) ? distPath : process.cwd();
 
-    console.log(`📁 Sirviendo archivos estáticos desde: ${distPath}`);
+    console.log(`📁 Sirviendo archivos estáticos desde: ${finalPath}`);
 
-    app.use(express.static(distPath, { 
+    app.use(express.static(finalPath, { 
       maxAge: '1d',
       setHeaders: (res, path) => {
         if (path.endsWith('index.html')) {
