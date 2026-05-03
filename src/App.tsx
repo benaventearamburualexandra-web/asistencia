@@ -208,6 +208,35 @@ export default function App() {
     } catch (e) { toast.error('Error al eliminar'); }
   };
 
+  const handleDeleteTeacher = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar a este docente? Se borrarán también sus registros de asistencia.')) return;
+    try {
+      const res = await fetch(`/api/teachers/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Docente eliminado correctamente');
+        fetchData();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Error al eliminar');
+      }
+    } catch (e) { toast.error('Error de conexión'); }
+  };
+
+  const handleUpdateTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeacher) return;
+    const loading = toast.loading('Actualizando docente...');
+    try {
+      const res = await fetch(`/api/teachers/${editingTeacher.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingTeacher),
+      });
+      if (res.ok) { toast.success('Datos actualizados', { id: loading }); setShowEditTeacher(false); fetchData(); }
+      else { toast.error('Error al actualizar', { id: loading }); }
+    } catch (e) { toast.error('Fallo de conexión', { id: loading }); }
+  };
+
   useEffect(() => {
     if (activeTab === 'asistencia' && mode === 'scan') {
       const timer = setTimeout(() => startScanner(), 500);
@@ -281,25 +310,29 @@ export default function App() {
       const safeRecords = Array.isArray(combinedRecords) ? combinedRecords : [];
       const safeAbsences = Array.isArray(combinedAbsences) ? combinedAbsences : [];
 
-      const XLSX = await import('xlsx');
+      const XLSXModule = await import('xlsx');
+      // Manejo de compatibilidad para la librería Excel
+      const XLSX = (XLSXModule as any).utils ? XLSXModule : (XLSXModule as any).default || XLSXModule;
+
       const data = [
         ...safeRecords.map((r: any) => ({
           'Tipo': 'ASISTENCIA', 
-          'Docente': r.teacher_name ? r.teacher_name.toUpperCase() : 'DESCONOCIDO', 
+          'Docente': (r.teacher_name || 'DESCONOCIDO').toUpperCase(), 
           'DNI': r.teacher_id || '-', 
-          'Evento': r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : (r.type || 'S/D'), 
+          'Estado': r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : (r.type || 'S/D'), 
           'Fecha': r.date || '-', 
           'Hora': r.time || '-', 
-          'Puntualidad': r.status || 'PUNTUAL'
+          'Detalle': r.status || 'PUNTUAL'
         })),
         ...safeAbsences.map((a: any) => ({
           'Tipo': 'FALTA', 
           'Docente': a.teacher_name || 'Desconocido', 
           'DNI': a.teacher_id || '-', 
-          'Evento': a.status || 'FALTA', 
+          'Estado': 'FALTA', 
           'Fecha': a.date || '-', 
           'Hora': '-', 
-          'Estado': a.offline ? 'PENDIENTE' : 'SINCRONIZADO'
+          'Detalle': a.reason || 'Sin motivo',
+          'Sincronización': a.offline ? 'PENDIENTE' : 'OK'
         }))
       ].sort((a, b) => String(b.Fecha).localeCompare(String(a.Fecha)));
 
@@ -315,12 +348,21 @@ export default function App() {
 
   // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
   const combinedRecords = useMemo(() => {
-    const rawPending = localStorage.getItem('pending_attendance');
-    const pending = Array.isArray(JSON.parse(rawPending || '[]')) ? JSON.parse(rawPending || '[]') : [];
+    let pending = [];
+    try {
+      const raw = localStorage.getItem('pending_attendance');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) pending = parsed;
+      }
+    } catch (e) { pending = []; }
+
     const safeTeachers = Array.isArray(teachers) ? teachers : [];
     const mappedPending = pending.map((item: any) => ({
       id: item.offlineId,
-      teacher_name: safeTeachers.find(t => t.id === item.teacherId) ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` : item.teacherId,
+      teacher_name: safeTeachers.find(t => t.id === item.teacherId) 
+        ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` 
+        : item.teacherId,
       teacher_id: item.teacherId,
       type: item.type,
       date: item.manualDate,
@@ -333,13 +375,22 @@ export default function App() {
   }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   const combinedAbsences = useMemo(() => {
-    const rawPending = localStorage.getItem('pending_absences');
-    const pending = Array.isArray(JSON.parse(rawPending || '[]')) ? JSON.parse(rawPending || '[]') : [];
+    let pending = [];
+    try {
+      const raw = localStorage.getItem('pending_absences');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) pending = parsed;
+      }
+    } catch (e) { pending = []; }
+
     const safeTeachers = Array.isArray(teachers) ? teachers : [];
     const mappedPending = pending.map((item: any) => ({
       id: 'pending-' + Math.random(),
       teacher_id: item.teacherId,
-      teacher_name: safeTeachers.find(t => t.id === item.teacherId) ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` : item.teacherId,
+      teacher_name: safeTeachers.find(t => t.id === item.teacherId) 
+        ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` 
+        : item.teacherId,
       date: item.date,
       status: item.status,
       reason: item.reason,
@@ -439,6 +490,7 @@ export default function App() {
       const data = await registerTeacher(newTeacher);
       if (data.success) {
         toast.success(data.offline ? 'Guardado en memoria (Offline)' : 'Docente registrado', { id: loading });
+        setSelectedTeacherQR(newTeacher as Teacher); // Visualizar QR inmediatamente
         setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
         setShowAddTeacher(false);
         setOfflineTrigger(prev => prev + 1);
@@ -594,14 +646,22 @@ export default function App() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.isArray(teachers) && teachers.map(t => (
-                  <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-5">
+                  <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden">
+                    <div className="flex justify-between items-start mb-5 relative z-10">
                       <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100">
                         <Users size={24} />
                       </div>
-                      <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-indigo-600 transition-all" aria-label={`Generar QR para ${t.first_name}`}>
-                        <QrCode size={20} />
-                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-all" title="Ver QR">
+                          <QrCode size={18} />
+                        </button>
+                        <button onClick={() => { setEditingTeacher(t); setShowEditTeacher(true); }} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-all" title="Editar">
+                          <Settings size={18} />
+                        </button>
+                        <button onClick={() => handleDeleteTeacher(t.id)} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Eliminar">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                     <h3 className="font-black text-slate-800 text-lg leading-tight">{t.first_name} {t.last_name}</h3>
                     <p className="text-sm text-indigo-600 font-semibold">{t.specialty}</p>
@@ -827,6 +887,102 @@ export default function App() {
                   <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Guardar nuevo docente">Guardar Docente</button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {showEditTeacher && editingTeacher && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={() => setShowEditTeacher(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] w-full max-w-md relative z-10 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
+              <form onSubmit={handleUpdateTeacher} className="flex flex-col h-full overflow-hidden">
+                <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 bg-white">
+                  <h2 className="text-2xl font-extrabold">Editar Docente</h2>
+                  <button type="button" onClick={() => setShowEditTeacher(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={24} /></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-8 space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase px-1">Nombres</label>
+                    <input type="text" required value={editingTeacher.first_name} onChange={e => setEditingTeacher({...editingTeacher, first_name: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase px-1">Apellidos</label>
+                    <input type="text" required value={editingTeacher.last_name} onChange={e => setEditingTeacher({...editingTeacher, last_name: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase px-1">Cargo o Especialidad</label>
+                    <input type="text" required value={editingTeacher.specialty} onChange={e => setEditingTeacher({...editingTeacher, specialty: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                  </div>
+                  <div className="space-y-4 bg-gray-50 p-6 rounded-3xl border border-gray-100">
+                    <label className="text-xs font-bold text-indigo-600 uppercase tracking-widest block mb-2">Horario de Trabajo</label>
+                    {Object.entries(editingTeacher.schedule || INITIAL_SCHEDULE).map(([day, data]: [string, any]) => (
+                      <div key={day} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3 mb-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <input type="checkbox" checked={data.enabled} onChange={e => setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, enabled: e.target.checked } } })} className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500" />
+                            <span className="font-bold text-slate-700 uppercase text-xs">{DAY_LABELS[day]}</span>
+                          </div>
+                          {data.enabled && (
+                            <button type="button" onClick={() => {
+                              const currentSlots = data.slots || [];
+                              setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: [...currentSlots, { start: '07:45', end: '14:05' }] } } });
+                            }} className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-lg">+ Bloque</button>
+                          )}
+                        </div>
+                        {data.enabled && (data.slots || []).map((slot: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 pt-2 border-t border-gray-50">
+                            <div className="grid grid-cols-2 gap-2 flex-1">
+                              <input type="time" value={slot.start} onChange={e => {
+                                const newSlots = [...data.slots]; newSlots[idx].start = e.target.value;
+                                setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: newSlots } } });
+                              }} className="text-xs p-2 bg-gray-50 rounded-lg" />
+                              <input type="time" value={slot.end} onChange={e => {
+                                const newSlots = [...data.slots]; newSlots[idx].end = e.target.value;
+                                setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: newSlots } } });
+                              }} className="text-xs p-2 bg-gray-50 rounded-lg" />
+                            </div>
+                            <button type="button" onClick={() => {
+                              const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
+                              setEditingTeacher({ ...editingTeacher, schedule: { ...(editingTeacher.schedule || INITIAL_SCHEDULE), [day]: { ...data, slots: newSlots } } });
+                            }} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg"><Trash2 size={14} /></button>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="p-8 pt-4 border-t border-gray-50 bg-white">
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">Guardar Cambios</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {selectedTeacherQR && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelectedTeacherQR(null)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="bg-white rounded-[3rem] p-12 w-full max-w-sm relative z-10 shadow-2xl text-center">
+              <button onClick={() => setSelectedTeacherQR(null)} className="absolute top-8 right-8 p-2 hover:bg-gray-100 rounded-full transition-colors text-slate-400"><X size={24} /></button>
+              <div className="mb-8">
+                <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-indigo-200">
+                  <QrCode size={40} />
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 leading-tight">{selectedTeacherQR.first_name}<br/>{selectedTeacherQR.last_name}</h2>
+                <p className="text-sm font-bold text-indigo-600 mt-2">{selectedTeacherQR.specialty}</p>
+                <p className="text-xs font-mono text-slate-400 mt-1 uppercase tracking-widest">{selectedTeacherQR.id}</p>
+              </div>
+              <div className="bg-white p-6 rounded-[2.5rem] border-4 border-slate-50 inline-block mb-10 shadow-inner">
+                <QRCodeSVG value={selectedTeacherQR.id} size={200} level="H" includeMargin={true} />
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <button onClick={() => window.print()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg">
+                  <Printer size={20} /> Imprimir Código
+                </button>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">
+                  Este código es personal e intransferible
+                </p>
+              </div>
             </motion.div>
           </div>
         )}
