@@ -505,8 +505,8 @@ export default function App() {
               <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
               <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
               <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
-            </> ) : null}
-          )}
+            </>
+          ) : null}
         </div>
 
         <div className="p-4 border-t border-gray-100">
