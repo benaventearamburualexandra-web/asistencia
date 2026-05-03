@@ -17,6 +17,9 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Definimos distPath aquí para que esté disponible en ambos entornos (desarrollo y producción)
+const distPath = path.join(__dirname, '..', 'dist');
+
 // DETECCIÓN DE ENTORNO: Si existe la variable RENDER, estamos en la nube.
 const isRender = process.env.RENDER === 'true';
 let pool: any;
