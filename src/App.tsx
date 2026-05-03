@@ -110,6 +110,7 @@ export default function App() {
 
     // Capturar el evento de instalación de PWA
     const handleBeforeInstall = (e: Event) => {
+      console.log('✅ PWA: Sistema listo para descarga detectado');
       e.preventDefault();
       setDeferredPrompt(e);
     };
