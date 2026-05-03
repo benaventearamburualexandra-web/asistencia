@@ -88,31 +88,39 @@ export async function syncOfflineData() {
   const pendingTeachers = JSON.parse(localStorage.getItem(TEACHERS_KEY) || '[]');
   const pendingAbsences = JSON.parse(localStorage.getItem(ABSENCES_KEY) || '[]');
 
+  if (pending.length === 0 && pendingTeachers.length === 0 && pendingAbsences.length === 0) return;
+
   // Sincronizar Asistencias
-  for (const item of [...pending]) {
+  const attendanceResults = await Promise.allSettled(pending.map(async (item: any) => {
     const res = await fetch('/api/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item) });
-    if (res.ok) {
-      const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(current.filter((i: any) => i.offlineId !== item.offlineId)));
-    }
+    if (res.ok) return item.offlineId;
+    throw new Error();
+  }));
+  const syncedAttendanceIds = attendanceResults.filter(r => r.status === 'fulfilled').map(r => (r as any).value);
+  if (syncedAttendanceIds.length > 0) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pending.filter((i: any) => !syncedAttendanceIds.includes(i.offlineId))));
   }
 
   // Sincronizar Docentes
-  for (const teacher of [...pendingTeachers]) {
+  const teacherResults = await Promise.allSettled(pendingTeachers.map(async (teacher: any) => {
     const res = await fetch('/api/teachers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(teacher) });
-    if (res.ok) {
-      const current = JSON.parse(localStorage.getItem(TEACHERS_KEY) || '[]');
-      localStorage.setItem(TEACHERS_KEY, JSON.stringify(current.filter((t: any) => t.id !== teacher.id)));
-    }
+    if (res.ok) return teacher.id;
+    throw new Error();
+  }));
+  const syncedTeacherIds = teacherResults.filter(r => r.status === 'fulfilled').map(r => (r as any).value);
+  if (syncedTeacherIds.length > 0) {
+    localStorage.setItem(TEACHERS_KEY, JSON.stringify(pendingTeachers.filter((t: any) => !syncedTeacherIds.includes(t.id))));
   }
 
   // Sincronizar Faltas
-  for (const abs of [...pendingAbsences]) {
+  const absenceResults = await Promise.allSettled(pendingAbsences.map(async (abs: any) => {
     const res = await fetch('/api/absences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(abs) });
-    if (res.ok) {
-      const current = JSON.parse(localStorage.getItem(ABSENCES_KEY) || '[]');
-      localStorage.setItem(ABSENCES_KEY, JSON.stringify(current.filter((a: any) => a.teacherId !== abs.teacherId || a.date !== abs.date)));
-    }
+    if (res.ok) return abs;
+    throw new Error();
+  }));
+  const syncedAbsences = absenceResults.filter(r => r.status === 'fulfilled').map(r => (r as any).value);
+  if (syncedAbsences.length > 0) {
+    localStorage.setItem(ABSENCES_KEY, JSON.stringify(pendingAbsences.filter((a: any) => !syncedAbsences.some((s: any) => s.teacherId === a.teacherId && s.date === a.date))));
   }
 }
 

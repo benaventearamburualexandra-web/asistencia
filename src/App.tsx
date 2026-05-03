@@ -142,7 +142,7 @@ export default function App() {
       setIsSyncing(false);
     };
 
-    const initTimeout = setTimeout(syncAndFetch, 1500);
+    const initTimeout = setTimeout(syncAndFetch, 2500); // Dar más tiempo al navegador para estabilizarse
 
     return () => {
       window.removeEventListener('online', handleStatus);
@@ -193,10 +193,8 @@ export default function App() {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null); // Limpiamos el prompt sin importar el resultado
   };
 
   const deleteAbsence = async (id: number | string) => {
@@ -495,25 +493,25 @@ export default function App() {
             <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-              <p className="text-[10px] text-slate-800 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+              <p className="text-[10px] text-slate-900 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 px-4 py-2 space-y-1 flex md:flex-col overflow-x-auto">
+        <div className="flex-1 px-4 py-2 space-y-1 flex md:flex-col overflow-x-auto custom-scrollbar">
           <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
-          {adminUser && (
+          {adminUser ? (
             <>
               <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
               <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
               <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
-            </>
+            </> ) : null}
           )}
         </div>
 
         <div className="p-4 border-t border-gray-100">
           {deferredPrompt && (
-            <button onClick={handleInstallClick} className="w-full mb-2 flex items-center gap-3 px-4 py-3 rounded-xl font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-all border border-amber-200" aria-label="Instalar aplicación en este dispositivo">
+            <button onClick={handleInstallClick} className="w-full mb-2 flex items-center gap-3 px-4 py-3 rounded-xl font-black bg-orange-500 text-white hover:bg-orange-600 transition-all shadow-lg" aria-label="Instalar aplicación">
               <Download size={20} />
               <span>Instalar App</span>
             </button>

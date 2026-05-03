@@ -1,10 +1,10 @@
 {
-  "id": "/?source=pwa",
+  "id": "/",
   "name": "Asistencia Docente QR",
   "short_name": "Asistencia",
   "description": "Sistema de asistencia offline",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/index.html",
+  "scope": ".",
   "display": "standalone",
   "background_color": "#4f46e5",
   "theme_color": "#4f46e5",
