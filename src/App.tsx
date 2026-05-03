@@ -92,6 +92,7 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const scannerRef = useRef<any>(null);
   const isInitializingRef = useRef<boolean>(false);
   const lastScannedRef = useRef<{ id: string, time: number }>({ id: '', time: 0 });
@@ -106,9 +107,30 @@ export default function App() {
     const handleStatus = () => setIsOnline(navigator.onLine);
     window.addEventListener('online', handleStatus);
     window.addEventListener('offline', handleStatus);
+
+    // Capturar el evento de instalación de PWA
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(err => console.error('SW error:', err));
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(reg => {
+          // Forzar actualización si hay un nuevo SW
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  toast("Nueva versión disponible. Cierra y abre la app.", { icon: '🔄' });
+                }
+              };
+            }
+          };
+        })
+        .catch(err => console.error('SW error:', err));
     }
 
     // Diferimos la sincronización para liberar el hilo principal durante la carga inicial
@@ -124,6 +146,7 @@ export default function App() {
     return () => {
       window.removeEventListener('online', handleStatus);
       window.removeEventListener('offline', handleStatus);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       clearTimeout(initTimeout);
     };
   }, []);
@@ -164,6 +187,15 @@ export default function App() {
         style: { borderRadius: '15px', background: '#333', color: '#fff' }
       });
     } finally { isInitializingRef.current = false; }
+  };
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
   };
 
   const deleteAbsence = async (id: number | string) => {
@@ -462,27 +494,33 @@ export default function App() {
             <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+              <p className="text-[10px] text-slate-700 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
             </div>
           </div>
         </div>
 
         <div className="flex-1 px-4 py-2 space-y-1 flex md:flex-col overflow-x-auto">
-          <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}><LayoutDashboard size={20} /><span>Escáner</span></button>
+          <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
           {adminUser && (
             <>
-              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}><Users size={20} /><span>Docentes</span></button>
-              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}><FileText size={20} /><span>Reportes</span></button>
-              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50'}`}><AlertCircle size={20} /><span>Faltas</span></button>
+              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
+              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
+              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
             </>
           )}
         </div>
 
         <div className="p-4 border-t border-gray-100">
+          {deferredPrompt && (
+            <button onClick={handleInstallClick} className="w-full mb-2 flex items-center gap-3 px-4 py-3 rounded-xl font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-all border border-amber-200">
+              <Download size={20} />
+              <span>Instalar App</span>
+            </button>
+          )}
           {adminUser ? (
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50"><LogOut size={20} /><span>Cerrar Sesión</span></button>
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-rose-700 hover:bg-rose-50" aria-label="Cerrar sesión de administrador"><LogOut size={20} /><span>Cerrar Sesión</span></button>
           ) : (
-            <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-50"><Settings size={20} /><span>Admin Login</span></button>
+            <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-700 hover:bg-gray-50" aria-label="Acceder como administrador"><Settings size={20} /><span>Admin Login</span></button>
           )}
         </div>
       </nav>
@@ -500,11 +538,11 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight">Registro Diario</h2>
-                  <p className="text-slate-600 font-medium">Escanea tu QR o ingresa tu DNI</p>
+                  <p className="text-slate-700 font-medium">Escanea tu QR o ingresa tu DNI</p>
                 </div>
                 <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
-                  <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-500 text-white shadow-lg' : 'text-gray-500'}`}>ENTRADA</button>
-                  <button onClick={() => setAttendanceType('SALIDA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'SALIDA' ? 'bg-orange-500 text-white shadow-lg' : 'text-gray-500'}`}>SALIDA</button>
+                  <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>ENTRADA</button>
+                  <button onClick={() => setAttendanceType('SALIDA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'SALIDA' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>SALIDA</button>
                 </div>
               </div>
 
@@ -534,10 +572,10 @@ export default function App() {
                   ) : (
                     <form onSubmit={(e) => { e.preventDefault(); handleAttendance(teacherId); }} className="space-y-6">
                       <div className="text-center space-y-2">
-                        <label className="text-xs font-bold text-gray-600 uppercase tracking-widest">Ingrese DNI del Docente</label>
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-widest">Ingrese DNI del Docente</label>
                         <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center shadow-inner" placeholder="00000000" autoFocus />
                       </div>
-                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3" aria-label={`Registrar ${attendanceType}`}>
                         {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} REGISTRAR {attendanceType}
                       </button>
                     </form>
@@ -551,7 +589,7 @@ export default function App() {
             <motion.div key="docentes" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Gestión Docente</h2>
-                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Agregar nuevo docente">
                   <UserPlus size={20} /> Nuevo
                 </button>
               </div>
@@ -562,7 +600,7 @@ export default function App() {
                       <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100">
                         <Users size={24} />
                       </div>
-                      <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-gray-50 rounded-xl text-gray-400 hover:text-indigo-600 transition-all">
+                      <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-gray-50 rounded-xl text-slate-500 hover:text-indigo-600 transition-all" aria-label={`Generar QR para ${t.first_name}`}>
                         <QrCode size={20} />
                       </button>
                     </div>
@@ -579,7 +617,7 @@ export default function App() {
             <motion.div key="faltas" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Inasistencias</h2>
-                <button onClick={() => setShowAddAbsence(true)} className="bg-rose-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-600 transition-all">
+                <button onClick={() => setShowAddAbsence(true)} className="bg-rose-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all" aria-label="Registrar nueva falta">
                   <AlertCircle size={20} /> Registrar Falta
                 </button>
               </div>
@@ -604,9 +642,9 @@ export default function App() {
                             {a.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-xs text-gray-500 max-w-[200px] truncate">{a.reason || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-slate-700 max-w-[200px] truncate">{a.reason || '-'}</td>
                         <td className="px-6 py-4 text-right">
-                           {!a.offline && <button onClick={() => deleteAbsence(a.id)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>}
+                           {!a.offline && <button onClick={() => deleteAbsence(a.id)} className="text-slate-400 hover:text-rose-600 transition-colors" aria-label="Eliminar registro de falta"><Trash2 size={18} /></button>}
                         </td>
                       </tr>
                     ))}
@@ -628,13 +666,13 @@ export default function App() {
                   <tbody className="divide-y divide-gray-50">
                     {Array.isArray(combinedRecords) && combinedRecords.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4"><div className="font-black text-slate-700 uppercase text-sm">{r.teacher_name}</div><div className="text-[10px] font-mono text-gray-400">{r.teacher_id}</div></td>
+                        <td className="px-6 py-4"><div className="font-black text-slate-800 uppercase text-sm">{r.teacher_name}</div><div className="text-[10px] font-mono text-slate-500">{r.teacher_id}</div></td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100') : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200') : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                             {r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : r.type}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{r.date} {r.time}</td>
+                        <td className="px-6 py-4 text-sm text-slate-700">{r.date} {r.time}</td>
                         <td className="px-6 py-4">
                           {r.status === 'PENDIENTE' ? (
                             <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-[10px] animate-pulse">SIN SUBIR</span>
