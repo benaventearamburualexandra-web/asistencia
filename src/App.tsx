@@ -494,7 +494,7 @@ export default function App() {
             <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-              <p className="text-[10px] text-slate-700 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+              <p className="text-[10px] text-slate-800 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
             </div>
           </div>
         </div>
@@ -503,24 +503,24 @@ export default function App() {
           <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
           {adminUser && (
             <>
-              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
-              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
-              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
+              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
+              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
+              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
             </>
           )}
         </div>
 
         <div className="p-4 border-t border-gray-100">
           {deferredPrompt && (
-            <button onClick={handleInstallClick} className="w-full mb-2 flex items-center gap-3 px-4 py-3 rounded-xl font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-all border border-amber-200">
+            <button onClick={handleInstallClick} className="w-full mb-2 flex items-center gap-3 px-4 py-3 rounded-xl font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-all border border-amber-200" aria-label="Instalar aplicación en este dispositivo">
               <Download size={20} />
               <span>Instalar App</span>
             </button>
           )}
           {adminUser ? (
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-rose-700 hover:bg-rose-50" aria-label="Cerrar sesión de administrador"><LogOut size={20} /><span>Cerrar Sesión</span></button>
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-rose-700 hover:bg-rose-50 hover:text-rose-800" aria-label="Cerrar sesión de administrador"><LogOut size={20} /><span>Cerrar Sesión</span></button>
           ) : (
-            <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-700 hover:bg-gray-50" aria-label="Acceder como administrador"><Settings size={20} /><span>Admin Login</span></button>
+            <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900" aria-label="Acceder como administrador"><Settings size={20} /><span>Admin Login</span></button>
           )}
         </div>
       </nav>
@@ -538,7 +538,7 @@ export default function App() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight">Registro Diario</h2>
-                  <p className="text-slate-700 font-medium">Escanea tu QR o ingresa tu DNI</p>
+                  <p className="text-slate-700 font-medium">Escanea tu código QR o ingresa tu DNI</p>
                 </div>
                 <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
                   <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>ENTRADA</button>
@@ -548,10 +548,10 @@ export default function App() {
 
               <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden max-w-2xl mx-auto">
                 <div className="flex border-b border-gray-100">
-                  <button onClick={() => setMode('scan')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'scan' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}>
+                  <button onClick={() => setMode('scan')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'scan' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`} aria-label="Activar escáner QR">
                     <QrCode size={18} /> Escáner
                   </button>
-                  <button onClick={() => setMode('manual')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'manual' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-400'}`}>
+                  <button onClick={() => setMode('manual')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'manual' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`} aria-label="Ingresar DNI manualmente">
                     <Keyboard size={18} /> Manual
                   </button>
                 </div>
@@ -562,7 +562,7 @@ export default function App() {
                       <div className="w-full max-w-xs aspect-square bg-slate-50 rounded-[2.5rem] border-4 border-dashed border-slate-200 overflow-hidden relative">
                         <div id="reader" className="w-full h-full"></div>
                         {!isCameraActive && (
-                          <button onClick={startScanner} className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 hover:bg-white transition-colors">
+                          <button onClick={startScanner} className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80 hover:bg-white transition-colors" aria-label="Activar cámara para escanear QR">
                             <Camera size={40} className="text-indigo-600" />
                             <span className="font-bold text-gray-700">Activar Cámara</span>
                           </button>
@@ -572,7 +572,7 @@ export default function App() {
                   ) : (
                     <form onSubmit={(e) => { e.preventDefault(); handleAttendance(teacherId); }} className="space-y-6">
                       <div className="text-center space-y-2">
-                        <label className="text-xs font-bold text-slate-700 uppercase tracking-widest">Ingrese DNI del Docente</label>
+                        <label htmlFor="teacher-dni-input" className="text-xs font-bold text-slate-700 uppercase tracking-widest">Ingrese DNI del Docente</label>
                         <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center shadow-inner" placeholder="00000000" autoFocus />
                       </div>
                       <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3" aria-label={`Registrar ${attendanceType}`}>
@@ -589,7 +589,7 @@ export default function App() {
             <motion.div key="docentes" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Gestión Docente</h2>
-                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Agregar nuevo docente">
+                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Agregar nuevo docente"> 
                   <UserPlus size={20} /> Nuevo
                 </button>
               </div>
@@ -600,13 +600,13 @@ export default function App() {
                       <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100">
                         <Users size={24} />
                       </div>
-                      <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-gray-50 rounded-xl text-slate-500 hover:text-indigo-600 transition-all" aria-label={`Generar QR para ${t.first_name}`}>
+                      <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-indigo-600 transition-all" aria-label={`Generar QR para ${t.first_name}`}>
                         <QrCode size={20} />
                       </button>
                     </div>
                     <h3 className="font-black text-slate-800 text-lg leading-tight">{t.first_name} {t.last_name}</h3>
                     <p className="text-sm text-indigo-600 font-semibold">{t.specialty}</p>
-                    <p className="text-xs font-mono text-slate-500 mt-3 tracking-widest bg-slate-100 p-2 rounded-lg inline-block">{t.id}</p>
+                    <p className="text-xs font-mono text-slate-600 mt-3 tracking-widest bg-slate-100 p-2 rounded-lg inline-block">{t.id}</p>
                   </div>
                 ))}
               </div>
@@ -617,7 +617,7 @@ export default function App() {
             <motion.div key="faltas" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Inasistencias</h2>
-                <button onClick={() => setShowAddAbsence(true)} className="bg-rose-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all" aria-label="Registrar nueva falta">
+                <button onClick={() => setShowAddAbsence(true)} className="bg-rose-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all" aria-label="Registrar nueva falta"> 
                   <AlertCircle size={20} /> Registrar Falta
                 </button>
               </div>
@@ -625,11 +625,11 @@ export default function App() {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
-                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Docente</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Fecha</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Estado</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Motivo</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase"></th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase">Docente</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase">Fecha</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase">Estado</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase">Motivo</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -638,13 +638,13 @@ export default function App() {
                         <td className="px-6 py-4 font-bold">{a.teacher_name}</td>
                         <td className="px-6 py-4 text-sm">{a.date}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${String(a.status).includes('JUSTIFICADA') ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${String(a.status).includes('JUSTIFICADA') ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}`}>
                             {a.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-xs text-slate-700 max-w-[200px] truncate">{a.reason || '-'}</td>
+                        <td className="px-6 py-4 text-xs text-slate-700 max-w-[200px] truncate">{a.reason || 'Sin motivo'}</td>
                         <td className="px-6 py-4 text-right">
-                           {!a.offline && <button onClick={() => deleteAbsence(a.id)} className="text-slate-400 hover:text-rose-600 transition-colors" aria-label="Eliminar registro de falta"><Trash2 size={18} /></button>}
+                           {!a.offline && <button onClick={() => deleteAbsence(a.id)} className="text-slate-400 hover:text-rose-600 transition-colors" aria-label={`Eliminar falta de ${a.teacher_name} el ${a.date}`}><Trash2 size={18} /></button>}
                         </td>
                       </tr>
                     ))}
@@ -658,7 +658,7 @@ export default function App() {
             <motion.div key="reportes" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Reportes</h2>
-                <button onClick={downloadExcel} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all"><Download size={18} /> Exportar Excel</button>
+                <button onClick={downloadExcel} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all" aria-label="Exportar reporte a Excel"><Download size={18} /> Exportar Excel</button>
               </div>
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
@@ -666,20 +666,20 @@ export default function App() {
                   <tbody className="divide-y divide-gray-50">
                     {Array.isArray(combinedRecords) && combinedRecords.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4"><div className="font-black text-slate-800 uppercase text-sm">{r.teacher_name}</div><div className="text-[10px] font-mono text-slate-500">{r.teacher_id}</div></td>
+                        <td className="px-6 py-4"><div className="font-black text-slate-800 uppercase text-sm">{r.teacher_name}</div><div className="text-[10px] font-mono text-slate-600">{r.teacher_id}</div></td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200') : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200') : 'bg-blue-50 text-blue-700 border-blue-200'}`} aria-label={`Evento: ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'Tarde' : 'Asistió') : r.type}`}>
                             {r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : r.type}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-700">{r.date} {r.time}</td>
                         <td className="px-6 py-4">
                           {r.status === 'PENDIENTE' ? (
-                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-[10px] animate-pulse">SIN SUBIR</span>
+                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-[10px] animate-pulse" aria-label="Estado: Pendiente de sincronizar">SIN SUBIR</span>
                           ) : r.status === 'TARDE' ? (
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded font-bold text-[10px]">⚠️ TARDE</span>
+                            <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded font-bold text-[10px]" aria-label="Estado: Tarde">⚠️ TARDE</span>
                           ) : (
-                            <span className="text-emerald-600 font-bold text-[10px]">✓ PUNTUAL</span>
+                            <span className="text-emerald-700 font-bold text-[10px]" aria-label="Estado: Puntual">✓ PUNTUAL</span>
                           )}
                         </td>
                       </tr>
@@ -699,10 +699,12 @@ export default function App() {
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 w-full max-w-sm shadow-2xl">
               <h2 className="text-2xl font-extrabold mb-6 text-center text-gray-900">Admin Access</h2>
               <form onSubmit={handleLogin} className="space-y-6">
-                <input type="text" required value={loginUsername} onChange={e => setLoginUsername(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none" placeholder="Usuario" />
-                <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none" placeholder="Contraseña" />
-                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg">ENTRAR</button>
-                <button type="button" onClick={() => setShowLogin(false)} className="w-full text-gray-400 font-bold text-sm">Cancelar</button>
+                <label htmlFor="login-username" className="sr-only">Usuario</label>
+                <input id="login-username" type="text" required value={loginUsername} onChange={e => setLoginUsername(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" placeholder="Usuario" aria-label="Campo de usuario" />
+                <label htmlFor="login-password" className="sr-only">Contraseña</label>
+                <input id="login-password" type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" placeholder="Contraseña" aria-label="Campo de contraseña" />
+                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-colors" aria-label="Iniciar sesión">ENTRAR</button>
+                <button type="button" onClick={() => setShowLogin(false)} className="w-full text-slate-600 font-bold text-sm hover:text-slate-800 transition-colors" aria-label="Cancelar inicio de sesión">Cancelar</button>
               </form>
             </motion.div>
           </div>
@@ -714,34 +716,34 @@ export default function App() {
         {showAddAbsence && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl relative">
-              <button onClick={() => setShowAddAbsence(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full"><X size={20} /></button>
+              <button onClick={() => setShowAddAbsence(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full" aria-label="Cerrar formulario de falta"><X size={20} /></button>
               <h2 className="text-2xl font-extrabold mb-6">Registrar Falta</h2>
               <form onSubmit={onAddAbsence} className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Docente</label>
-                  <select required value={newAbsence.teacherId} onChange={e => setNewAbsence({...newAbsence, teacherId: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500">
+                  <label htmlFor="absence-teacher" className="text-xs font-bold text-slate-700 uppercase">Docente</label>
+                  <select id="absence-teacher" required value={newAbsence.teacherId} onChange={e => setNewAbsence({...newAbsence, teacherId: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" aria-label="Seleccionar docente para la falta">
                     <option value="">Seleccionar...</option>
                     {teachers.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Fecha</label>
-                    <input type="date" required value={newAbsence.date} onChange={e => setNewAbsence({...newAbsence, date: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none" />
+                    <label htmlFor="absence-date" className="text-xs font-bold text-slate-700 uppercase">Fecha</label>
+                    <input id="absence-date" type="date" required value={newAbsence.date} onChange={e => setNewAbsence({...newAbsence, date: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" aria-label="Fecha de la falta" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Tipo</label>
-                    <select value={newAbsence.status} onChange={e => setNewAbsence({...newAbsence, status: e.target.value as any})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none">
+                    <label htmlFor="absence-status" className="text-xs font-bold text-slate-700 uppercase">Tipo</label>
+                    <select id="absence-status" value={newAbsence.status} onChange={e => setNewAbsence({...newAbsence, status: e.target.value as any})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" aria-label="Estado de la falta">
                       <option value="INJUSTIFICADA">Injustificada</option>
                       <option value="JUSTIFICADA">Justificada</option>
                     </select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase">Motivo</label>
-                  <textarea value={newAbsence.reason} onChange={e => setNewAbsence({...newAbsence, reason: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none h-24 resize-none" placeholder="Opcional..." />
+                  <label htmlFor="absence-reason" className="text-xs font-bold text-slate-700 uppercase">Motivo</label>
+                  <textarea id="absence-reason" value={newAbsence.reason} onChange={e => setNewAbsence({...newAbsence, reason: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none h-24 resize-none focus:border-indigo-500" placeholder="Opcional..." aria-label="Motivo de la falta" />
                 </div>
-                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg shadow-indigo-100">GUARDAR FALTA</button>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors" aria-label="Guardar registro de falta">GUARDAR FALTA</button>
               </form>
             </motion.div>
           </div>
@@ -757,21 +759,21 @@ export default function App() {
               <form onSubmit={onAddTeacher} className="flex flex-col h-full overflow-hidden">
                 <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-50 bg-white">
                   <h2 className="text-2xl font-extrabold">Nuevo Docente</h2>
-                  <button type="button" onClick={() => setShowAddTeacher(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={24} /></button>
+                  <button type="button" onClick={() => setShowAddTeacher(false)} className="p-2 hover:bg-gray-100 rounded-full" aria-label="Cerrar formulario de nuevo docente"><X size={24} /></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-6">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Nombres</label>
-                    <input type="text" required value={newTeacher.first_name} onChange={e => setNewTeacher({ ...newTeacher, first_name: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                    <label htmlFor="new-teacher-first-name" className="text-xs font-bold text-slate-700 uppercase tracking-widest px-1">Nombres</label>
+                    <input id="new-teacher-first-name" type="text" required value={newTeacher.first_name} onChange={e => setNewTeacher({ ...newTeacher, first_name: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" placeholder="Nombres del docente" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Apellidos</label>
-                    <input type="text" required value={newTeacher.last_name} onChange={e => setNewTeacher({ ...newTeacher, last_name: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                    <label htmlFor="new-teacher-last-name" className="text-xs font-bold text-slate-700 uppercase tracking-widest px-1">Apellidos</label>
+                    <input id="new-teacher-last-name" type="text" required value={newTeacher.last_name} onChange={e => setNewTeacher({ ...newTeacher, last_name: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" placeholder="Apellidos del docente" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">DNI / ID</label>
-                    <input type="text" required value={newTeacher.id} onChange={e => setNewTeacher({ ...newTeacher, id: e.target.value.replace(/\D/g, '') })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none font-mono" maxLength={12} />
+                    <label htmlFor="new-teacher-id" className="text-xs font-bold text-slate-700 uppercase tracking-widest px-1">DNI / ID</label>
+                    <input id="new-teacher-id" type="text" required value={newTeacher.id} onChange={e => setNewTeacher({ ...newTeacher, id: e.target.value.replace(/\D/g, '') })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none font-mono" maxLength={12} placeholder="Número de DNI" />
                   </div>
                   
                   {/* Gestión de Horarios Complejos */}
@@ -781,33 +783,35 @@ export default function App() {
                       <div key={day} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <input type="checkbox" checked={data.enabled} onChange={e => setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, enabled: e.target.checked } } })} className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500" />
-                            <span className="font-bold text-gray-700 uppercase text-xs">{DAY_LABELS[day]}</span>
+                            <input id={`schedule-${day}-enabled`} type="checkbox" checked={data.enabled} onChange={e => setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, enabled: e.target.checked } } })} className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500" aria-label={`Habilitar horario para ${DAY_LABELS[day]}`} />
+                            <label htmlFor={`schedule-${day}-enabled`} className="font-bold text-slate-700 uppercase text-xs">{DAY_LABELS[day]}</label>
                           </div>
                           {data.enabled && (
-                            <button type="button" onClick={() => {
+                            <button type="button" onClick={() => { 
                               const currentSlots = data.slots || [];
                               setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: [...currentSlots, { start: '07:45', end: '14:05' }] } } });
-                            }} className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors">+ Bloque</button>
+                            }} className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded-lg transition-colors" aria-label={`Agregar bloque de horario para ${DAY_LABELS[day]}`}>+ Bloque</button>
                           )}
                         </div>
 
                         {data.enabled && (data.slots || []).map((slot: any, idx: number) => (
                           <div key={idx} className="flex items-center gap-2 pt-2 border-t border-gray-50">
                             <div className="grid grid-cols-2 gap-2 flex-1">
-                              <input type="time" value={slot.start} onChange={e => {
+                              <label htmlFor={`slot-${day}-${idx}-start`} className="sr-only">Hora de inicio</label>
+                              <input id={`slot-${day}-${idx}-start`} type="time" value={slot.start} onChange={e => {
                                 const newSlots = [...data.slots]; newSlots[idx].start = e.target.value;
                                 setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
-                              }} className="text-xs p-2 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-indigo-500" />
-                              <input type="time" value={slot.end} onChange={e => {
+                              }} className="text-xs p-2 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-indigo-500" aria-label="Hora de inicio del bloque" />
+                              <label htmlFor={`slot-${day}-${idx}-end`} className="sr-only">Hora de fin</label>
+                              <input id={`slot-${day}-${idx}-end`} type="time" value={slot.end} onChange={e => {
                                 const newSlots = [...data.slots]; newSlots[idx].end = e.target.value;
                                 setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
-                              }} className="text-xs p-2 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-indigo-500" />
+                              }} className="text-xs p-2 bg-gray-50 rounded-lg border-none focus:ring-2 focus:ring-indigo-500" aria-label="Hora de fin del bloque" />
                             </div>
-                            <button type="button" onClick={() => {
+                            <button type="button" onClick={() => { 
                               const newSlots = data.slots.filter((_: any, i: number) => i !== idx);
                               setNewTeacher({ ...newTeacher, schedule: { ...newTeacher.schedule, [day]: { ...data, slots: newSlots } } });
-                            }} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                            }} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors" aria-label={`Eliminar bloque de horario ${idx + 1}`}><Trash2 size={14} /></button>
                           </div>
                         ))}
                       </div>
@@ -815,13 +819,13 @@ export default function App() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1">Especialidad o Cargo</label>
-                    <input type="text" required value={newTeacher.specialty} onChange={e => setNewTeacher({ ...newTeacher, specialty: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" />
+                    <label htmlFor="new-teacher-specialty" className="text-xs font-bold text-slate-700 uppercase tracking-widest px-1">Especialidad o Cargo</label>
+                    <input id="new-teacher-specialty" type="text" required value={newTeacher.specialty} onChange={e => setNewTeacher({ ...newTeacher, specialty: e.target.value })} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-indigo-500 outline-none" placeholder="Ej: Docente de Primaria" />
                   </div>
                 </div>
 
                 <div className="p-8 pt-4 border-t border-gray-50 bg-white">
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-extrabold text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">Guardar Docente</button>
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Guardar nuevo docente">Guardar Docente</button>
                 </div>
               </form>
             </motion.div>

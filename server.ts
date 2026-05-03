@@ -17,9 +17,6 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Definimos distPath aquí para que esté disponible en ambos entornos (desarrollo y producción)
-const distPath = path.join(__dirname, '..', 'dist');
-
 // DETECCIÓN DE ENTORNO: Si existe la variable RENDER, estamos en la nube.
 const isRender = process.env.RENDER === 'true';
 let pool: any;
@@ -563,10 +560,10 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // En producción, el archivo server.js está dentro de la carpeta 'dist'.
-    // Necesitamos servir los archivos estáticos desde esa misma carpeta.
+    // Por lo tanto, __dirname ya apunta a la carpeta 'dist'.
     console.log(`📁 Sirviendo archivos estáticos desde: ${__dirname}`);
 
-    app.use(express.static(distPath, { 
+    app.use(express.static(__dirname, { 
       maxAge: '7d', // Aumentamos el tiempo de caché para activos estáticos
       setHeaders: (res, path) => {
         if (path.endsWith('index.html')) {

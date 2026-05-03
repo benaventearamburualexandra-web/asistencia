@@ -4,8 +4,8 @@ const OFFLINE_URL = '/index.html';
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Guardamos la página principal inmediatamente al instalar
-      return cache.addAll([OFFLINE_URL, '/', '/manifest.json']);
+      // Guardamos la página principal, el manifest y los iconos inmediatamente al instalar
+      return cache.addAll([OFFLINE_URL, '/', '/manifest.json', '/icon-192x192.png', '/icon-512x512.png']);
     })
   );
   self.skipWaiting();
