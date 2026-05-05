@@ -120,7 +120,9 @@ export async function syncOfflineData() {
   }));
   const syncedAbsences = absenceResults.filter(r => r.status === 'fulfilled').map(r => (r as any).value);
   if (syncedAbsences.length > 0) {
-    localStorage.setItem(ABSENCES_KEY, JSON.stringify(pendingAbsences.filter((a: any) => !syncedAbsences.some((s: any) => s.teacherId === a.teacherId && s.date === a.date))));
+    const remaining = pendingAbsences.filter((a: any) => 
+      !syncedAbsences.some((s: any) => s.teacherId === a.teacherId && s.date === a.date));
+    localStorage.setItem(ABSENCES_KEY, JSON.stringify(remaining));
   }
 }
 

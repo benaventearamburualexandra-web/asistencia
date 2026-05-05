@@ -1,11 +1,20 @@
-const CACHE_NAME = 'asistencia-docente-v4';
+const CACHE_NAME = 'asistencia-docente-v5';
 const OFFLINE_URL = '/index.html';
+const ASSETS_TO_CACHE = [
+  OFFLINE_URL,
+  '/',
+  '/manifest.json',
+  '/icon-192x192.png',
+  '/icon-512x512.png'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Guardamos la página principal, el manifest y los iconos inmediatamente al instalar
-      return cache.addAll([OFFLINE_URL, '/', '/manifest.json', '/icon-192x192.png', '/icon-512x512.png']);
+      // Intentamos cachear cada archivo individualmente para que si uno falla, el resto siga
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(url => cache.add(url).catch(err => console.warn(`Fallo al cachear: ${url}`, err)))
+      );
     })
   );
   self.skipWaiting();

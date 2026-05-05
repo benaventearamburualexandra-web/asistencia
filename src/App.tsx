@@ -237,6 +237,40 @@ export default function App() {
     } catch (e) { toast.error('Fallo de conexión', { id: loading }); }
   };
 
+  const downloadQRCode = () => {
+    if (!selectedTeacherQR) return;
+    const svg = document.getElementById("teacher-qr-code");
+    if (!svg) return;
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    
+    img.onload = () => {
+      canvas.width = 400;
+      canvas.height = 450;
+      if (ctx) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, 400, 450);
+        ctx.drawImage(img, 50, 50, 300, 300);
+        
+        ctx.fillStyle = "black";
+        ctx.font = "bold 20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${selectedTeacherQR.first_name} ${selectedTeacherQR.last_name}`, 200, 380);
+        ctx.font = "14px monospace";
+        ctx.fillText(`ID: ${selectedTeacherQR.id}`, 200, 410);
+      }
+      const pngUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = `QR_${selectedTeacherQR.last_name}_${selectedTeacherQR.first_name}.png`;
+      link.click();
+    };
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
   useEffect(() => {
     if (activeTab === 'asistencia' && mode === 'scan') {
       const timer = setTimeout(() => startScanner(), 500);
@@ -545,18 +579,18 @@ export default function App() {
             <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-              <p className="text-[10px] text-slate-900 font-bold uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+              <p className="text-[10px] text-slate-900 font-black uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
             </div>
           </div>
         </div>
 
         <div className="flex-1 px-4 py-2 space-y-1 flex md:flex-col overflow-x-auto custom-scrollbar">
-          <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-700 hover:bg-gray-50'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
+          <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-800 hover:bg-gray-50'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
           {adminUser ? (
             <>
-              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
-              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
-              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-700 hover:bg-slate-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
+              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
+              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
+              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
             </>
           ) : null}
         </div>
@@ -973,11 +1007,14 @@ export default function App() {
                 <p className="text-xs font-mono text-slate-400 mt-1 uppercase tracking-widest">{selectedTeacherQR.id}</p>
               </div>
               <div className="bg-white p-6 rounded-[2.5rem] border-4 border-slate-50 inline-block mb-10 shadow-inner">
-                <QRCodeSVG value={selectedTeacherQR.id} size={200} level="H" includeMargin={true} />
+                <QRCodeSVG id="teacher-qr-code" value={selectedTeacherQR.id} size={200} level="H" includeMargin={true} />
               </div>
-              <div className="grid grid-cols-1 gap-3">
-                <button onClick={() => window.print()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg">
+              <div className="flex flex-col gap-3">
+                <button onClick={() => window.print()} className="w-full bg-slate-100 text-slate-900 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-200 transition-all shadow-sm">
                   <Printer size={20} /> Imprimir Código
+                </button>
+                <button onClick={downloadQRCode} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg">
+                  <Download size={20} /> Descargar Imagen
                 </button>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">
                   Este código es personal e intransferible
