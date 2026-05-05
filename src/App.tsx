@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { Toaster, toast } from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -55,8 +56,10 @@ const DAY_LABELS: Record<string, string> = {
 
 export default function App() {
   const [adminUser, setAdminUser] = useState<{username: string, name: string} | null>(() => {
-    const saved = localStorage.getItem('admin_session');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('admin_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
   });
   
   const [activeTab, setActiveTab] = useState<'asistencia' | 'docentes' | 'reportes' | 'faltas'>('asistencia');
@@ -71,10 +74,22 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Estados con carga de Caché Local inmediata
-  const [teachers, setTeachers] = useState<Teacher[]>(() => JSON.parse(localStorage.getItem('cache_teachers') || '[]'));
-  const [records, setRecords] = useState<AttendanceRecord[]>(() => JSON.parse(localStorage.getItem('cache_records') || '[]'));
-  const [absences, setAbsences] = useState<AbsenceRecord[]>(() => JSON.parse(localStorage.getItem('cache_absences') || '[]'));
-  const [admins, setAdmins] = useState<any[]>(() => JSON.parse(localStorage.getItem('cache_admins') || '[]'));
+  const [teachers, setTeachers] = useState<Teacher[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cache_teachers') || '[]'); } catch (e) { return []; }
+  });
+  const [records, setRecords] = useState<AttendanceRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cache_records') || '[]'); } catch (e) { return []; }
+  });
+  const [absences, setAbsences] = useState<AbsenceRecord[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cache_absences') || '[]'); } catch (e) { return []; }
+  });
+  const [admins, setAdmins] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('cache_admins') || '[]'); } catch (e) { return []; }
+  });
+
+  const [isWrongPort, setIsWrongPort] = useState(false);
+  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking' | 'reconnecting'>('checking');
+  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   const [showLogin, setShowLogin] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
@@ -107,6 +122,8 @@ export default function App() {
     const handleStatus = () => setIsOnline(navigator.onLine);
     window.addEventListener('online', handleStatus);
     window.addEventListener('offline', handleStatus);
+
+    if (window.location.port === '5173') setIsWrongPort(true);
 
     // Capturar el evento de instalación de PWA
     const handleBeforeInstall = (e: any) => {
@@ -346,10 +363,6 @@ export default function App() {
     try {
       const safeRecords = Array.isArray(combinedRecords) ? combinedRecords : [];
       const safeAbsences = Array.isArray(combinedAbsences) ? combinedAbsences : [];
-
-      const XLSXModule = await import('xlsx');
-      // Manejo de compatibilidad para la librería Excel
-      const XLSX = (XLSXModule as any).utils ? XLSXModule : (XLSXModule as any).default || XLSXModule;
 
       const data = [
         ...safeRecords.map((r: any) => ({
