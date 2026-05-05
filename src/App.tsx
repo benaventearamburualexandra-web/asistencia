@@ -88,8 +88,6 @@ export default function App() {
   });
 
   const [isWrongPort, setIsWrongPort] = useState(false);
-  const [dbStatus, setDbStatus] = useState<'connected' | 'error' | 'checking' | 'reconnecting'>('checking');
-  const [dbErrorMessage, setDbErrorMessage] = useState<string | null>(null);
 
   const [showLogin, setShowLogin] = useState(false);
   const [showAddTeacher, setShowAddTeacher] = useState(false);
