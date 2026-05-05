@@ -478,13 +478,25 @@ export default function App() {
         const daySchedule = teacher.schedule[dayName];
         
         if (daySchedule?.enabled) {
-          const currentTime = now.getHours() * 60 + now.getMinutes();
+          const peruTimeStr = new Intl.DateTimeFormat('en-GB', { 
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Lima' 
+          }).format(now);
+          const [currH, currM] = peruTimeStr.split(':').map(Number);
+          const currentTime = currH * 60 + currM;
+
           let referenceStartMins = null;
+          let minDiff = Infinity;
 
           if (daySchedule.slots && daySchedule.slots.length > 0) {
-            // Tomamos el primer bloque del día como referencia de entrada
-            const [h, m] = daySchedule.slots[0].start.split(':').map(Number);
-            referenceStartMins = h * 60 + m;
+            daySchedule.slots.forEach((slot: any) => {
+              const [h, m] = slot.start.split(':').map(Number);
+              const slotMins = h * 60 + m;
+              const diff = Math.abs(currentTime - slotMins);
+              if (diff < minDiff) {
+                minDiff = diff;
+                referenceStartMins = slotMins;
+              }
+            });
           } else if (daySchedule.start) {
             const [h, m] = daySchedule.start.split(':').map(Number);
             referenceStartMins = h * 60 + m;
@@ -776,9 +788,30 @@ export default function App() {
 
           {activeTab === 'reportes' && (
             <motion.div key="reportes" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-black text-slate-800">Reportes</h2>
-                <button onClick={downloadExcel} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all" aria-label="Exportar reporte a Excel"><Download size={18} /> Exportar Excel</button>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black text-slate-800">Reportes</h2>
+                  <p className="text-slate-600 font-medium text-sm">Visualiza y exporta la asistencia mensual</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col">
+                    <label htmlFor="report-month-select" className="text-[10px] font-bold text-slate-500 uppercase ml-1 mb-1">Seleccionar Mes</label>
+                    <input 
+                      id="report-month-select"
+                      type="month" 
+                      value={reportMonth} 
+                      onChange={(e) => {
+                        setReportMonth(e.target.value);
+                        setReportWeek(''); // Limpiar semana si se selecciona mes
+                      }}
+                      className="bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                    />
+                  </div>
+                  <button onClick={downloadExcel} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all self-end" aria-label="Exportar reporte a Excel">
+                    <Download size={18} /> 
+                    <span className="hidden sm:inline">Exportar Excel</span>
+                  </button>
+                </div>
               </div>
               <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">

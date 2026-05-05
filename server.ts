@@ -477,7 +477,7 @@ async function startServer() {
   app.delete("/api/teachers/:id", async (req, res) => {
     const { id } = req.params;
     try {
-      await pool.query(isRender ? 'BEGIN' : 'BEGIN TRANSACTION');
+      await pool.query('BEGIN');
 
       // 1. Eliminamos primero los registros vinculados en las tablas de asistencia y faltas
       await pool.query("DELETE FROM attendance WHERE teacher_id = $1", [id]);
@@ -486,7 +486,7 @@ async function startServer() {
       // 2. Ahora que no hay dependencias, eliminamos al docente
       await pool.query("DELETE FROM teachers WHERE id = $1", [id]);
 
-      await pool.query(isRender ? 'COMMIT' : 'COMMIT');
+      await pool.query('COMMIT');
       res.json({ success: true });
     } catch (e: any) {
       await pool.query('ROLLBACK');
