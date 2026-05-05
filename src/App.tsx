@@ -292,8 +292,15 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'asistencia' && mode === 'scan') {
       const timer = setTimeout(() => startScanner(), 500);
-      return () => { clearTimeout(timer); scannerRef.current?.stop().catch(() => {}); };
+      return () => { 
+        clearTimeout(timer); 
+        if (scannerRef.current) {
+          scannerRef.current.stop().catch(() => {});
+          setIsCameraActive(false);
+        }
+      };
     }
+    setIsCameraActive(false);
   }, [activeTab, mode]);
 
   const fetchData = async (showLoader = false) => {
@@ -396,70 +403,82 @@ export default function App() {
 
   // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
   const combinedRecords = useMemo(() => {
-    if (!Array.isArray(teachers)) return [];
-    let pending = [];
     try {
-      const raw = localStorage.getItem('pending_attendance');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) pending = parsed;
-      }
-    } catch (e) { pending = []; }
+      if (!Array.isArray(teachers)) return [];
+      let pending = [];
+      try {
+        const raw = localStorage.getItem('pending_attendance');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) pending = parsed;
+        }
+      } catch (e) { pending = []; }
 
-    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
+      const teacherMap = new Map(teachers.filter(t => t && t?.id).map(t => [t.id.toString(), t]));
 
-    const mappedPending = pending.map((item: any) => {
-      if (!item) return null;
-      const tId = item.teacherId?.toString() || '';
-      const tObj = teacherMap.get(tId);
-      return {
-        id: item.offlineId || Math.random().toString(),
-        teacher_name: tObj ? `${tObj.first_name} ${tObj.last_name}` : (tId || 'Desconocido'),
-        teacher_id: tId,
-        type: item.type || 'S/D',
-        date: item.manualDate || '',
-        time: item.manualTime || '',
-        status: item.status || 'PENDIENTE'
-      };
-    }).filter((r): r is AttendanceRecord => r !== null && !!r.teacher_id);
+      const mappedPending = pending.map((item: any) => {
+        if (!item) return null;
+        const tId = item.teacherId?.toString() || '';
+        const tObj = teacherMap.get(tId);
+        return {
+          id: item.offlineId || Math.random().toString(),
+          teacher_name: tObj ? `${tObj.first_name} ${tObj.last_name}` : (tId || 'Desconocido'),
+          teacher_id: tId,
+          type: item.type || 'S/D',
+          date: item.manualDate || '',
+          time: item.manualTime || '',
+          status: item.status || 'PENDIENTE'
+        };
+      }).filter((r): r is AttendanceRecord => r !== null && !!r.teacher_id);
 
-    return [...(Array.isArray(records) ? records : []), ...mappedPending]
-      .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.time || '').localeCompare(a.time || ''))
-      .slice(0, 100); // Solo mostramos los últimos 100 para que la app no se trabe
+      const allRecords = [...(Array.isArray(records) ? records : []), ...mappedPending];
+      return allRecords
+        .filter(r => r && r.date && (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
+        .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.time || '').localeCompare(a.time || ''))
+        .slice(0, 100);
+    } catch (err) {
+      console.error("Error en combinedRecords:", err);
+      return [];
+    }
   }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   const combinedAbsences = useMemo(() => {
-    if (!Array.isArray(teachers)) return [];
-    let pending = [];
     try {
-      const raw = localStorage.getItem('pending_absences');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) pending = parsed;
-      }
-    } catch (e) { pending = []; }
+      if (!Array.isArray(teachers)) return [];
+      let pending = [];
+      try {
+        const raw = localStorage.getItem('pending_absences');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) pending = parsed;
+        }
+      } catch (e) { pending = []; }
 
-    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
+      const teacherMap = new Map(teachers.filter(t => t && t?.id).map(t => [t.id.toString(), t]));
 
-    const mappedPending = pending.map((item: any) => {
-      if (!item) return null;
-      const tId = item.teacherId?.toString() || '';
-      const tObj = teacherMap.get(tId);
-      return {
-        id: 'pending-' + Math.random(),
-        teacher_id: tId,
-        teacher_name: tObj ? `${tObj.first_name} ${tObj.last_name}` : (tId || 'Desconocido'),
-        date: item.date || '',
-        status: item.status || 'INJUSTIFICADA',
-        reason: item.reason || '',
-        offline: true
-      };
-    }).filter((a): a is AbsenceRecord => a !== null && !!a.teacher_id);
+      const mappedPending = pending.map((item: any) => {
+        if (!item) return null;
+        const tId = item.teacherId?.toString() || '';
+        const tObj = teacherMap.get(tId);
+        return {
+          id: 'pending-' + Math.random(),
+          teacher_id: tId,
+          teacher_name: tObj ? `${tObj.first_name} ${tObj.last_name}` : (tId || 'Desconocido'),
+          date: item.date || '',
+          status: item.status || 'INJUSTIFICADA',
+          reason: item.reason || '',
+          offline: true
+        };
+      }).filter((a): a is AbsenceRecord => a !== null && !!a.teacher_id);
 
-    return [...(Array.isArray(absences) ? absences : []), ...mappedPending]
-      .filter(a => (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const allAbsences = [...(Array.isArray(absences) ? absences : []), ...mappedPending];
+      return allAbsences
+        .filter(a => a && a.date && (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    } catch (err) {
+      console.error("Error en combinedAbsences:", err);
+      return [];
+    }
   }, [absences, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   // --- ACCIONES ---
