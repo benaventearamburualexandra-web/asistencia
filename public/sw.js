@@ -1,4 +1,4 @@
-const CACHE_NAME = 'asistencia-docente-v5';
+const CACHE_NAME = 'asistencia-docente-v6';
 const OFFLINE_URL = '/index.html';
 const ASSETS_TO_CACHE = [
   OFFLINE_URL,
@@ -11,9 +11,11 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Intentamos cachear cada archivo individualmente para que si uno falla, el resto siga
-      return Promise.allSettled(
-        ASSETS_TO_CACHE.map(url => cache.add(url).catch(err => console.warn(`Fallo al cachear: ${url}`, err)))
+      // Estrategia tolerante: intenta guardar uno por uno
+      return Promise.all(
+        ASSETS_TO_CACHE.map(url => {
+          return cache.add(url).catch(err => console.warn("Fallo al guardar en caché:", url));
+        })
       );
     })
   );

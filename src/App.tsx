@@ -382,57 +382,61 @@ export default function App() {
 
   // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
   const combinedRecords = useMemo(() => {
-    let pending = [];
+    if (!Array.isArray(teachers)) return [];
+    let pending: any[] = [];
     try {
       const raw = localStorage.getItem('pending_attendance');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) pending = parsed;
-      }
+      if (raw) pending = JSON.parse(raw);
     } catch (e) { pending = []; }
+    if (!Array.isArray(pending)) pending = [];
 
-    const safeTeachers = Array.isArray(teachers) ? teachers : [];
+    // Búsqueda instantánea de nombres
+    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
+
     const mappedPending = pending.map((item: any) => ({
-      id: item.offlineId,
-      teacher_name: safeTeachers.find(t => t.id === item.teacherId) 
-        ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` 
-        : item.teacherId,
+      id: item?.offlineId || Math.random().toString(),
+      teacher_name: teacherMap.get(item?.teacherId?.toString()) 
+        ? `${teacherMap.get(item.teacherId.toString())?.first_name} ${teacherMap.get(item.teacherId.toString())?.last_name}` 
+        : (item?.teacherId || 'Desconocido'),
       teacher_id: item.teacherId,
       type: item.type,
       date: item.manualDate,
       time: item.manualTime,
       status: item.status || 'PENDIENTE'
-    }));
+    })).filter(r => r.teacher_id);
+
     return [...(Array.isArray(records) ? records : []), ...mappedPending]
       .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
-      .sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+      .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.time || '').localeCompare(a.time || ''))
+      .slice(0, 100); // Solo mostramos los últimos 100 para que la app no se trabe
   }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   const combinedAbsences = useMemo(() => {
-    let pending = [];
+    if (!Array.isArray(teachers)) return [];
+    let pending: any[] = [];
     try {
       const raw = localStorage.getItem('pending_absences');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) pending = parsed;
-      }
+      if (raw) pending = JSON.parse(raw);
     } catch (e) { pending = []; }
+    if (!Array.isArray(pending)) pending = [];
 
-    const safeTeachers = Array.isArray(teachers) ? teachers : [];
+    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
+
     const mappedPending = pending.map((item: any) => ({
       id: 'pending-' + Math.random(),
       teacher_id: item.teacherId,
-      teacher_name: safeTeachers.find(t => t.id === item.teacherId) 
-        ? `${safeTeachers.find(t => t.id === item.teacherId)?.first_name} ${safeTeachers.find(t => t.id === item.teacherId)?.last_name}` 
-        : item.teacherId,
+      teacher_name: teacherMap.get(item?.teacherId?.toString())
+        ? `${teacherMap.get(item.teacherId.toString())?.first_name} ${teacherMap.get(item.teacherId.toString())?.last_name}`
+        : (item?.teacherId || 'Desconocido'),
       date: item.date,
       status: item.status,
       reason: item.reason,
       offline: true
-    }));
+    })).filter(a => a.teacher_id);
+
     return [...(Array.isArray(absences) ? absences : []), ...mappedPending]
       .filter(a => (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
-      .sort((a, b) => b.date.localeCompare(a.date));
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [absences, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   // --- ACCIONES ---
