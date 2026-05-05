@@ -109,11 +109,13 @@ export default function App() {
     window.addEventListener('offline', handleStatus);
 
     // Capturar el evento de instalación de PWA
-    const handleBeforeInstall = (e: Event) => {
-      console.log('✅ PWA: Sistema listo para descarga detectado');
+    const handleBeforeInstall = (e: any) => {
+      console.log('✅ PWA: Evento beforeinstallprompt capturado.');
       e.preventDefault();
       setDeferredPrompt(e);
     };
+
+    // Escuchamos el evento inmediatamente
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     
     if ('serviceWorker' in navigator) {
@@ -194,6 +196,7 @@ export default function App() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
+    console.log('✅ PWA: Prompt de instalación mostrado al usuario.');
     setDeferredPrompt(null); // Limpiamos el prompt sin importar el resultado
   };
 
@@ -382,28 +385,28 @@ export default function App() {
 
   // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
   const combinedRecords = useMemo(() => {
-    if (!Array.isArray(teachers)) return [];
-    let pending: any[] = [];
+    if (!Array.isArray(teachers)) return []; // Aseguramos que teachers sea un array
+    let pending: any[] = []; // Inicializamos pending como array vacío
     try {
       const raw = localStorage.getItem('pending_attendance');
-      if (raw) pending = JSON.parse(raw);
+      if (raw) pending = JSON.parse(raw); // Intentamos parsear
     } catch (e) { pending = []; }
-    if (!Array.isArray(pending)) pending = [];
+    if (!Array.isArray(pending)) pending = []; // Aseguramos que pending sea un array
 
-    // Búsqueda instantánea de nombres
-    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
+    // Búsqueda instantánea de nombres, filtrando docentes inválidos
+    const teacherMap = new Map(teachers.filter(t => t?.id).map(t => [t.id.toString(), t]));
 
     const mappedPending = pending.map((item: any) => ({
-      id: item?.offlineId || Math.random().toString(),
-      teacher_name: teacherMap.get(item?.teacherId?.toString()) 
+      id: item?.offlineId || Math.random().toString(), // Genera un ID si no existe
+      teacher_name: teacherMap.get(item?.teacherId?.toString() || '') // Busca el nombre, si no, usa el ID o 'Desconocido'
         ? `${teacherMap.get(item.teacherId.toString())?.first_name} ${teacherMap.get(item.teacherId.toString())?.last_name}` 
-        : (item?.teacherId || 'Desconocido'),
+        : (item?.teacherId || 'Desconocido'), 
       teacher_id: item.teacherId,
       type: item.type,
       date: item.manualDate,
       time: item.manualTime,
       status: item.status || 'PENDIENTE'
-    })).filter(r => r.teacher_id);
+    })).filter(r => r?.teacher_id); // Filtra registros sin teacher_id válido
 
     return [...(Array.isArray(records) ? records : []), ...mappedPending]
       .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
@@ -412,27 +415,27 @@ export default function App() {
   }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   const combinedAbsences = useMemo(() => {
-    if (!Array.isArray(teachers)) return [];
-    let pending: any[] = [];
+    if (!Array.isArray(teachers)) return []; // Aseguramos que teachers sea un array
+    let pending: any[] = []; // Inicializamos pending como array vacío
     try {
       const raw = localStorage.getItem('pending_absences');
-      if (raw) pending = JSON.parse(raw);
+      if (raw) pending = JSON.parse(raw); // Intentamos parsear
     } catch (e) { pending = []; }
-    if (!Array.isArray(pending)) pending = [];
+    if (!Array.isArray(pending)) pending = []; // Aseguramos que pending sea un array
 
-    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
+    const teacherMap = new Map(teachers.filter(t => t?.id).map(t => [t.id.toString(), t]));
 
     const mappedPending = pending.map((item: any) => ({
       id: 'pending-' + Math.random(),
       teacher_id: item.teacherId,
-      teacher_name: teacherMap.get(item?.teacherId?.toString())
+      teacher_name: teacherMap.get(item?.teacherId?.toString() || '')
         ? `${teacherMap.get(item.teacherId.toString())?.first_name} ${teacherMap.get(item.teacherId.toString())?.last_name}`
-        : (item?.teacherId || 'Desconocido'),
+        : (item?.teacherId || 'Desconocido'), // Si no encuentra, usa el ID o 'Desconocido'
       date: item.date,
       status: item.status,
       reason: item.reason,
       offline: true
-    })).filter(a => a.teacher_id);
+    })).filter(a => a?.teacher_id); // Filtra registros sin teacher_id válido
 
     return [...(Array.isArray(absences) ? absences : []), ...mappedPending]
       .filter(a => (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
@@ -528,7 +531,7 @@ export default function App() {
       const data = await registerTeacher(newTeacher);
       if (data.success) {
         toast.success(data.offline ? 'Guardado en memoria (Offline)' : 'Docente registrado', { id: loading });
-        setSelectedTeacherQR(newTeacher as Teacher); // Visualizar QR inmediatamente
+        setSelectedTeacherQR({ ...newTeacher, schedule: newTeacher.schedule }); // Visualizar QR inmediatamente
         setNewTeacher({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
         setShowAddTeacher(false);
         setOfflineTrigger(prev => prev + 1);
