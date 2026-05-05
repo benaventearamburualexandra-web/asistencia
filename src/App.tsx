@@ -179,16 +179,29 @@ export default function App() {
 
     try {
       if (scannerRef.current) { try { await scannerRef.current.stop(); } catch (e) {} }
-      const { Html5Qrcode } = await import('html5-qrcode');
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
+
+      const config = {
+        fps: 20, // Mayor frecuencia de frames para detección rápida
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const size = Math.floor(minEdge * 0.7);
+          return { width: size, height: size };
+        },
+        aspectRatio: 1.0,
+        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ], // Solo buscar QRs
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true } // Usa aceleración nativa si existe
+      };
+
       await html5QrCode.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
+        config,
         (text) => {
           const now = Date.now();
-          // Evitar lecturas múltiples (5 segundos de espera para el mismo ID)
-          if (lastScannedRef.current.id === text && (now - lastScannedRef.current.time) < 5000) return;
+          // Reducido a 3 segundos para que sea más ágil si el docente se equivoca
+          if (lastScannedRef.current.id === text && (now - lastScannedRef.current.time) < 3000) return;
           lastScannedRef.current = { id: text, time: now };
           
           if ('vibrate' in navigator) navigator.vibrate(200);
