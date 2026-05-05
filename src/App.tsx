@@ -385,28 +385,32 @@ export default function App() {
 
   // --- LÓGICA DE DATOS COMBINADOS (OFFLINE + ONLINE) ---
   const combinedRecords = useMemo(() => {
-    if (!Array.isArray(teachers)) return []; // Aseguramos que teachers sea un array
-    let pending: any[] = []; // Inicializamos pending como array vacío
+    if (!Array.isArray(teachers)) return [];
+    let pending = [];
     try {
       const raw = localStorage.getItem('pending_attendance');
-      if (raw) pending = JSON.parse(raw); // Intentamos parsear
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) pending = parsed;
+      }
     } catch (e) { pending = []; }
-    if (!Array.isArray(pending)) pending = []; // Aseguramos que pending sea un array
 
-    // Búsqueda instantánea de nombres, filtrando docentes inválidos
-    const teacherMap = new Map(teachers.filter(t => t?.id).map(t => [t.id.toString(), t]));
+    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
 
-    const mappedPending = pending.map((item: any) => ({
-      id: item?.offlineId || Math.random().toString(), // Genera un ID si no existe
-      teacher_name: teacherMap.get(item?.teacherId?.toString() || '') // Busca el nombre, si no, usa el ID o 'Desconocido'
-        ? `${teacherMap.get(item.teacherId.toString())?.first_name} ${teacherMap.get(item.teacherId.toString())?.last_name}` 
-        : (item?.teacherId || 'Desconocido'), 
-      teacher_id: item.teacherId,
-      type: item.type,
-      date: item.manualDate,
-      time: item.manualTime,
-      status: item.status || 'PENDIENTE'
-    })).filter(r => r?.teacher_id); // Filtra registros sin teacher_id válido
+    const mappedPending = pending.map((item: any) => {
+      if (!item) return null;
+      const tId = item.teacherId?.toString() || '';
+      const tObj = teacherMap.get(tId);
+      return {
+        id: item.offlineId || Math.random().toString(),
+        teacher_name: tObj ? `${tObj.first_name} ${tObj.last_name}` : (tId || 'Desconocido'),
+        teacher_id: tId,
+        type: item.type || 'S/D',
+        date: item.manualDate || '',
+        time: item.manualTime || '',
+        status: item.status || 'PENDIENTE'
+      };
+    }).filter((r): r is AttendanceRecord => r !== null && !!r.teacher_id);
 
     return [...(Array.isArray(records) ? records : []), ...mappedPending]
       .filter(r => (reportWeek ? isDateInWeek(r.date, reportWeek) : (reportMonth ? r.date.startsWith(reportMonth) : true)))
@@ -415,27 +419,32 @@ export default function App() {
   }, [records, teachers, reportMonth, reportWeek, offlineTrigger]);
 
   const combinedAbsences = useMemo(() => {
-    if (!Array.isArray(teachers)) return []; // Aseguramos que teachers sea un array
-    let pending: any[] = []; // Inicializamos pending como array vacío
+    if (!Array.isArray(teachers)) return [];
+    let pending = [];
     try {
       const raw = localStorage.getItem('pending_absences');
-      if (raw) pending = JSON.parse(raw); // Intentamos parsear
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) pending = parsed;
+      }
     } catch (e) { pending = []; }
-    if (!Array.isArray(pending)) pending = []; // Aseguramos que pending sea un array
 
-    const teacherMap = new Map(teachers.filter(t => t?.id).map(t => [t.id.toString(), t]));
+    const teacherMap = new Map(teachers.filter(t => t && t.id).map(t => [t.id.toString(), t]));
 
-    const mappedPending = pending.map((item: any) => ({
-      id: 'pending-' + Math.random(),
-      teacher_id: item.teacherId,
-      teacher_name: teacherMap.get(item?.teacherId?.toString() || '')
-        ? `${teacherMap.get(item.teacherId.toString())?.first_name} ${teacherMap.get(item.teacherId.toString())?.last_name}`
-        : (item?.teacherId || 'Desconocido'), // Si no encuentra, usa el ID o 'Desconocido'
-      date: item.date,
-      status: item.status,
-      reason: item.reason,
-      offline: true
-    })).filter(a => a?.teacher_id); // Filtra registros sin teacher_id válido
+    const mappedPending = pending.map((item: any) => {
+      if (!item) return null;
+      const tId = item.teacherId?.toString() || '';
+      const tObj = teacherMap.get(tId);
+      return {
+        id: 'pending-' + Math.random(),
+        teacher_id: tId,
+        teacher_name: tObj ? `${tObj.first_name} ${tObj.last_name}` : (tId || 'Desconocido'),
+        date: item.date || '',
+        status: item.status || 'INJUSTIFICADA',
+        reason: item.reason || '',
+        offline: true
+      };
+    }).filter((a): a is AbsenceRecord => a !== null && !!a.teacher_id);
 
     return [...(Array.isArray(absences) ? absences : []), ...mappedPending]
       .filter(a => (reportWeek ? isDateInWeek(a.date, reportWeek) : (reportMonth ? a.date.startsWith(reportMonth) : true)))
@@ -686,7 +695,7 @@ export default function App() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Array.isArray(teachers) && teachers.map(t => (
+                {Array.isArray(teachers) && teachers.filter(t => t && t.id).map(t => (
                   <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden">
                     <div className="flex justify-between items-start mb-5 relative z-10">
                       <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100">
