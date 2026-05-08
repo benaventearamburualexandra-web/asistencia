@@ -180,16 +180,15 @@ export default function App() {
     try {
       if (scannerRef.current) { try { await scannerRef.current.stop(); } catch (e) {} }
       const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
-      const html5QrCode = new Html5Qrcode("reader");
-      scannerRef.current = html5QrCode;
+      
+      // Si el usuario ya cambió de pestaña mientras cargaba el módulo, abortamos
+      if (activeTab !== 'asistencia') return;
+
+      scannerRef.current = new Html5Qrcode("reader");
 
       const config = {
-        fps: 20, // Mayor frecuencia de frames para detección rápida
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const size = Math.floor(minEdge * 0.7);
-          return { width: size, height: size };
-        },
+        fps: 30, // Aumentamos a 30 FPS para detección ultra rápida
+        qrbox: { width: 250, height: 250 }, // Caja fija para evitar cálculos costosos
         aspectRatio: 1.0,
         formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ], // Solo buscar QRs
         experimentalFeatures: { useBarCodeDetectorIfSupported: true } // Usa aceleración nativa si existe
@@ -200,8 +199,8 @@ export default function App() {
         config,
         (text) => {
           const now = Date.now();
-          // Reducido a 3 segundos para que sea más ágil si el docente se equivoca
-          if (lastScannedRef.current.id === text && (now - lastScannedRef.current.time) < 3000) return;
+          // Reducido a 2 segundos de cooldown para mayor agilidad
+          if (lastScannedRef.current.id === text && (now - lastScannedRef.current.time) < 2000) return;
           lastScannedRef.current = { id: text, time: now };
           
           if ('vibrate' in navigator) navigator.vibrate(200);
@@ -303,17 +302,18 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeTab === 'asistencia' && mode === 'scan') {
-      const timer = setTimeout(() => startScanner(), 500);
-      return () => { 
-        clearTimeout(timer); 
-        if (scannerRef.current) {
-          scannerRef.current.stop().catch(() => {});
-          setIsCameraActive(false);
-        }
-      };
+    // Si no estamos en asistencia/scan, apagamos la cámara inmediatamente
+    if (activeTab !== 'asistencia' || mode !== 'scan') {
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(() => {});
+        scannerRef.current = null;
+      }
+      setIsCameraActive(false);
+      return;
     }
-    setIsCameraActive(false);
+
+    const timer = setTimeout(() => startScanner(), 100);
+    return () => clearTimeout(timer);
   }, [activeTab, mode]);
 
   const fetchData = async (showLoader = false) => {

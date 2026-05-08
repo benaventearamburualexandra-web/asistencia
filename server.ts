@@ -583,15 +583,15 @@ async function startServer() {
     });
   }
 
+  // Forzamos la inicialización de la DB ANTES de levantar el servidor
+  await initDb();
+
   app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`
 =================================================
   SERVIDOR ESCUCHANDO EN PUERTO ${PORT}
-  Inicializando base de datos en segundo plano...
 =================================================
     `);
-    // Iniciamos la DB después de que el servidor ya está escuchando peticiones
-    initDb().catch(console.error);
   });
 }
 
