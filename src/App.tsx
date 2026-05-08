@@ -194,7 +194,7 @@ export default function App() {
         experimentalFeatures: { useBarCodeDetectorIfSupported: true } // Usa aceleración nativa si existe
       };
 
-      await html5QrCode.start(
+      await scannerRef.current.start(
         { facingMode: "environment" },
         config,
         (text) => {
@@ -503,7 +503,20 @@ export default function App() {
     // --- LÓGICA DE TARDANZA INTEGRADA ---
     let calculatedStatus = 'PUNTUAL';
     if (attendanceTypeRef.current === 'ENTRADA') {
-      const teacher = teachers.find(t => t.id === tid);
+      // 1. Buscamos en los docentes ya sincronizados
+      let teacher = teachers.find(t => t.id === tid);
+      
+      // 2. MEJORA OFFLINE: Si no existe, buscamos en los docentes agregados offline 
+      // que aún no se han subido al servidor.
+      if (!teacher) {
+        try {
+          const pending = JSON.parse(localStorage.getItem('pending_teachers') || '[]');
+          teacher = pending.find((t: any) => t.id === tid);
+        } catch (e) {
+          console.warn("No se pudo acceder a los docentes pendientes offline");
+        }
+      }
+
       if (teacher?.schedule) {
         const now = new Date();
         const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'America/Lima' }).format(now).toLowerCase();

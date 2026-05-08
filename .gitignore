@@ -2,21 +2,8 @@ node_modules/
 build/
 dist/
 coverage/
-node_modules
-.env
-dist
-build
 .DS_Store
 *.log
 .env*
 !.env.example
 asistencia.db
-
-# SQLite
-*.sqlite
-*.sqlite-journal
-
-# IDEs
-.vscode/
-.idea/
-*.swp
