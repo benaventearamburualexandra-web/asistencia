@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { Toaster, toast } from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
@@ -179,8 +180,6 @@ export default function App() {
 
     try {
       if (scannerRef.current) { try { await scannerRef.current.stop(); } catch (e) {} }
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
-      
       // Si el usuario ya cambió de pestaña mientras cargaba el módulo, abortamos
       if (activeTab !== 'asistencia') return;
 
@@ -314,9 +313,9 @@ export default function App() {
 
     const timer = setTimeout(() => startScanner(), 100);
     return () => clearTimeout(timer);
-  }, [activeTab, mode]);
+  }, [activeTab, mode, isOnline]); // Añadido isOnline para re-intentar si vuelve la red
 
-  const fetchData = async (showLoader = false) => {
+  const fetchData = async (showLoader = false, retries = 0) => {
     if (!navigator.onLine && window.location.hostname !== 'localhost') {
       setDbStatus('connected');
       setIsLoading(false);
@@ -325,7 +324,7 @@ export default function App() {
     
     if (showLoader) setIsLoading(true);
     setDbStatus('checking');
-    let wakeupTimer = setTimeout(() => { if (showLoader) setIsWakingUp(true); }, 2000);
+    let wakeupTimer = setTimeout(() => { if (showLoader) setIsWakingUp(true); }, 1500);
 
     try {
       const timestamp = Date.now();
@@ -367,7 +366,14 @@ export default function App() {
         setAdmins([]);
       }
     } catch (error) {
-      setDbStatus('connected');
+      console.error("Fetch error:", error);
+      if (retries < 2) {
+        console.log(`Reintentando conexión... (${retries + 1})`);
+        setTimeout(() => fetchData(showLoader, retries + 1), 3000);
+      } else {
+        setDbStatus('error');
+        setDbErrorMessage("El servidor está tardando en responder. Por favor, refresca la página.");
+      }
     } finally {
       clearTimeout(wakeupTimer);
       setIsWakingUp(false);
@@ -701,9 +707,10 @@ export default function App() {
            {isSyncing && <Loader2 className="animate-spin text-indigo-600" size={20} />}
         </div>
 
-        <AnimatePresence mode="wait">
-          {activeTab === 'asistencia' && (
-            <motion.div key="asistencia" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+        <div className="relative flex-1">
+          {/* Escáner - Siempre montado para evitar recargas de cámara */}
+          <div className={activeTab === 'asistencia' ? 'block' : 'hidden'}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800 tracking-tight">Registro Diario</h2>
@@ -752,10 +759,10 @@ export default function App() {
                 </div>
               </div>
             </motion.div>
-          )}
+          </div>
 
-          {activeTab === 'docentes' && (
-            <motion.div key="docentes" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+          {activeTab === 'docentes' && adminUser && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Gestión Docente</h2>
                 <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Agregar nuevo docente"> 
@@ -790,8 +797,8 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'faltas' && (
-            <motion.div key="faltas" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+          {activeTab === 'faltas' && adminUser && (
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Inasistencias</h2>
                 <button onClick={() => setShowAddAbsence(true)} className="bg-rose-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all" aria-label="Registrar nueva falta"> 
@@ -831,8 +838,8 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'reportes' && (
-            <motion.div key="reportes" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          {activeTab === 'reportes' && adminUser && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-black text-slate-800">Reportes</h2>
@@ -887,7 +894,7 @@ export default function App() {
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+        </div>
       </main>
 
       {/* Modals Login */}
