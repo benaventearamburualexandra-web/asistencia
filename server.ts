@@ -540,6 +540,20 @@ async function startServer() {
     }
   });
 
+  app.put("/api/absences/:id", async (req, res) => {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+    try {
+      await pool.query(
+        "UPDATE absences SET status = $1, reason = $2 WHERE id = $3",
+        [status, reason, id]
+      );
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ error: "Error al actualizar falta" });
+    }
+  });
+
   app.delete("/api/absences/:id", async (req, res) => {
     const { id } = req.params;
     try {

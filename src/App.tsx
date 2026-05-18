@@ -94,10 +94,12 @@ export default function App() {
   const [showAddTeacher, setShowAddTeacher] = useState(false);
   const [showEditTeacher, setShowEditTeacher] = useState(false);
   const [showAddAbsence, setShowAddAbsence] = useState(false);
+  const [showEditAbsence, setShowEditAbsence] = useState(false);
   const [loginUsername, setLoginUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [newTeacher, setNewTeacher] = useState({ id: '', first_name: '', last_name: '', specialty: '', photo_url: '', schedule: INITIAL_SCHEDULE });
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
+  const [editingAbsence, setEditingAbsence] = useState<AbsenceRecord | null>(null);
   const [newAbsence, setNewAbsence] = useState({ teacherId: '', date: new Date().toISOString().split('T')[0], status: 'INJUSTIFICADA', reason: '' });
   const [selectedTeacherQR, setSelectedTeacherQR] = useState<Teacher | null>(null);
   const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -263,6 +265,26 @@ export default function App() {
       });
       if (res.ok) { toast.success('Datos actualizados', { id: loading }); setShowEditTeacher(false); fetchData(); }
       else { toast.error('Error al actualizar', { id: loading }); }
+    } catch (e) { toast.error('Fallo de conexión', { id: loading }); }
+  };
+
+  const handleUpdateAbsence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAbsence) return;
+    const loading = toast.loading('Actualizando falta...');
+    try {
+      const res = await fetch(`/api/absences/${editingAbsence.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: editingAbsence.status, reason: editingAbsence.reason }),
+      });
+      if (res.ok) {
+        toast.success('Falta actualizada', { id: loading });
+        setShowEditAbsence(false);
+        fetchData();
+      } else {
+        toast.error('Error al actualizar', { id: loading });
+      }
     } catch (e) { toast.error('Fallo de conexión', { id: loading }); }
   };
 
@@ -827,8 +849,13 @@ export default function App() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-700 max-w-[200px] truncate">{a.reason || 'Sin motivo'}</td>
-                        <td className="px-6 py-4 text-right">
-                           {!a.offline && <button onClick={() => deleteAbsence(a.id)} className="text-slate-400 hover:text-rose-600 transition-colors" aria-label={`Eliminar falta de ${a.teacher_name} el ${a.date}`}><Trash2 size={18} /></button>}
+                        <td className="px-6 py-4 text-right flex justify-end gap-2">
+                           {!a.offline && (
+                             <>
+                               <button onClick={() => { setEditingAbsence(a); setShowEditAbsence(true); }} className="text-slate-400 hover:text-[#7DA142] transition-colors" title="Justificar/Editar"><Settings size={18} /></button>
+                               <button onClick={() => deleteAbsence(a.id)} className="text-slate-400 hover:text-rose-600 transition-colors" aria-label={`Eliminar falta de ${a.teacher_name} el ${a.date}`}><Trash2 size={18} /></button>
+                             </>
+                           )}
                         </td>
                       </tr>
                     ))}
@@ -949,6 +976,36 @@ export default function App() {
                   <textarea id="absence-reason" value={newAbsence.reason} onChange={e => setNewAbsence({...newAbsence, reason: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none h-24 resize-none focus:border-indigo-500" placeholder="Opcional..." aria-label="Motivo de la falta" />
                 </div>
                 <button type="submit" className="w-full bg-[#FF8A65] text-white py-5 rounded-2xl font-black shadow-lg shadow-rose-100 hover:bg-[#FF7F50] transition-colors" aria-label="Guardar registro de falta">GUARDAR FALTA</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Editar Falta (Justificar) */}
+      <AnimatePresence>
+        {showEditAbsence && editingAbsence && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl relative">
+              <button onClick={() => setShowEditAbsence(false)} className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full" aria-label="Cerrar formulario"><X size={20} /></button>
+              <h2 className="text-2xl font-extrabold mb-6">Gestionar Falta</h2>
+              <div className="mb-4">
+                <p className="text-sm font-bold text-slate-800">{editingAbsence.teacher_name}</p>
+                <p className="text-xs text-slate-500">{editingAbsence.date}</p>
+              </div>
+              <form onSubmit={handleUpdateAbsence} className="space-y-6">
+                <div className="space-y-2">
+                  <label htmlFor="edit-absence-status" className="text-xs font-bold text-slate-700 uppercase">Estado / Justificación</label>
+                  <select id="edit-absence-status" value={editingAbsence.status} onChange={e => setEditingAbsence({...editingAbsence, status: e.target.value as any})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500">
+                    <option value="INJUSTIFICADA">Injustificada</option>
+                    <option value="JUSTIFICADA">Justificada</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="edit-absence-reason" className="text-xs font-bold text-slate-700 uppercase">Motivo o Detalle</label>
+                  <textarea id="edit-absence-reason" value={editingAbsence.reason} onChange={e => setEditingAbsence({...editingAbsence, reason: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none h-32 resize-none focus:border-indigo-500" placeholder="Explicación de la justificación..." />
+                </div>
+                <button type="submit" className="w-full bg-[#7ED321] text-white py-5 rounded-2xl font-black shadow-lg hover:bg-[#8CD63F] transition-colors">GUARDAR CAMBIOS</button>
               </form>
             </motion.div>
           </div>

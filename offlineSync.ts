@@ -62,17 +62,21 @@ export async function registerTeacher(teacherData: any) {
  * Guarda una falta localmente si no hay red.
  */
 export async function registerAbsence(absenceData: any) {
+  const dataWithId = { 
+    ...absenceData, 
+    offlineId: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) 
+  };
   try {
     const res = await fetch('/api/absences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(absenceData),
+      body: JSON.stringify(dataWithId),
     });
     if (!res.ok) throw new Error();
     return await res.json();
   } catch (error) {
     const pending = JSON.parse(localStorage.getItem(ABSENCES_KEY) || '[]');
-    pending.push(absenceData);
+    pending.push(dataWithId);
     localStorage.setItem(ABSENCES_KEY, JSON.stringify(pending));
     return { success: true, offline: true };
   }
@@ -115,14 +119,12 @@ export async function syncOfflineData() {
   // Sincronizar Faltas
   const absenceResults = await Promise.allSettled(pendingAbsences.map(async (abs: any) => {
     const res = await fetch('/api/absences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(abs) });
-    if (res.ok) return abs;
+    if (res.ok) return abs.offlineId;
     throw new Error();
   }));
-  const syncedAbsences = absenceResults.filter(r => r.status === 'fulfilled').map(r => (r as any).value);
-  if (syncedAbsences.length > 0) {
-    const remaining = pendingAbsences.filter((a: any) => 
-      !syncedAbsences.some((s: any) => s.teacherId === a.teacherId && s.date === a.date));
-    localStorage.setItem(ABSENCES_KEY, JSON.stringify(remaining));
+  const syncedAbsenceIds = absenceResults.filter(r => r.status === 'fulfilled').map(r => (r as any).value);
+  if (syncedAbsenceIds.length > 0) {
+    localStorage.setItem(ABSENCES_KEY, JSON.stringify(pendingAbsences.filter((a: any) => !syncedAbsenceIds.includes(a.offlineId))));
   }
 }
 
