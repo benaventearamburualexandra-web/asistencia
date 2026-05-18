@@ -389,7 +389,7 @@ export default function App() {
       const safeAbsences = Array.isArray(combinedAbsences) ? combinedAbsences : [];
 
       const data = [
-        ...safeRecords.map((r: any) => ({
+        ...safeRecords.map((r: AttendanceRecord) => ({
           'Tipo': 'ASISTENCIA', 
           'Docente': (r.teacher_name || 'DESCONOCIDO').toUpperCase(), 
           'DNI': r.teacher_id || '-', 
@@ -398,7 +398,7 @@ export default function App() {
           'Hora': r.time || '-', 
           'Detalle': r.status || 'PUNTUAL'
         })),
-        ...safeAbsences.map((a: any) => ({
+        ...safeAbsences.map((a: AbsenceRecord) => ({
           'Tipo': 'FALTA', 
           'Docente': a.teacher_name || 'Desconocido', 
           'DNI': a.teacher_id || '-', 
@@ -408,7 +408,7 @@ export default function App() {
           'Detalle': a.reason || 'Sin motivo',
           'Sincronización': a.offline ? 'PENDIENTE' : 'OK'
         }))
-      ].sort((a, b) => String(b.Fecha).localeCompare(String(a.Fecha)));
+      ].sort((itemA: any, itemB: any) => String(itemB['Fecha']).localeCompare(String(itemA['Fecha'])));
 
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
@@ -660,32 +660,32 @@ export default function App() {
       )}
 
       {/* Sidebar Navigation */}
-      <nav className="w-full md:w-64 bg-white border-r border-gray-200 flex flex-col h-auto md:h-screen sticky top-0 z-50">
+      <nav className="w-full md:w-64 bg-[#7DA142] text-white border-r border-[#6B8A38] flex flex-col h-auto md:h-screen sticky top-0 z-50">
         <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+          <div className="w-10 h-10 bg-[#7ED321] rounded-xl flex items-center justify-center text-white shadow-lg shadow-black/10">
             <UserCheck size={24} />
           </div>
           <div>
-            <h1 className="font-bold text-lg text-slate-800">EduControl</h1>
+            <h1 className="font-bold text-lg text-white">EduControl</h1>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-              <p className="text-[10px] text-slate-900 font-black uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
+              <p className="text-[10px] text-white/90 font-black uppercase tracking-tighter">{isOnline ? 'En línea' : 'Modo Offline'}</p>
             </div>
           </div>
         </div>
 
         <div className="flex-1 px-4 py-2 space-y-1 flex md:flex-col overflow-x-auto custom-scrollbar">
-          <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'asistencia' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-800 hover:bg-gray-50'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
+          <button onClick={() => setActiveTab('asistencia')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'asistencia' ? 'bg-white/20 text-white shadow-sm' : 'text-white/80 hover:bg-white/10'}`} aria-label="Ver escáner de asistencia"><LayoutDashboard size={20} /><span>Escáner</span></button>
           {adminUser ? (
             <>
-              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'docentes' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
-              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'reportes' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
-              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'faltas' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
+              <button onClick={() => setActiveTab('docentes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'docentes' ? 'bg-white/20 text-white shadow-sm' : 'text-white/80 hover:bg-white/10'}`} aria-label="Gestionar docentes"><Users size={20} /><span>Docentes</span></button>
+              <button onClick={() => setActiveTab('reportes')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'reportes' ? 'bg-white/20 text-white shadow-sm' : 'text-white/80 hover:bg-white/10'}`} aria-label="Ver reportes"><FileText size={20} /><span>Reportes</span></button>
+              <button onClick={() => setActiveTab('faltas')} className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all ${activeTab === 'faltas' ? 'bg-white/20 text-white shadow-sm' : 'text-white/80 hover:bg-white/10'}`} aria-label="Control de inasistencias"><AlertCircle size={20} /><span>Faltas</span></button>
             </>
           ) : null}
         </div>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-white/10">
           {deferredPrompt && (
             <button onClick={handleInstallClick} className="w-full mb-2 flex items-center gap-3 px-4 py-3 rounded-xl font-black bg-orange-500 text-white hover:bg-orange-600 transition-all shadow-lg" aria-label="Instalar aplicación">
               <Download size={20} />
@@ -693,18 +693,18 @@ export default function App() {
             </button>
           )}
           {adminUser ? (
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-rose-700 hover:bg-rose-50 hover:text-rose-800" aria-label="Cerrar sesión de administrador"><LogOut size={20} /><span>Cerrar Sesión</span></button>
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-white/90 hover:bg-rose-500/20 transition-all" aria-label="Cerrar sesión de administrador"><LogOut size={20} /><span>Cerrar Sesión</span></button>
           ) : (
-            <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900" aria-label="Acceder como administrador"><Settings size={20} /><span>Admin Login</span></button>
+            <button onClick={() => setShowLogin(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-white/90 hover:bg-white/10 transition-all" aria-label="Acceder como administrador"><Settings size={20} /><span>Admin Login</span></button>
           )}
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 h-screen overflow-y-auto p-4 md:p-8 bg-[#F8F9FA]">
+      <main className="flex-1 h-screen overflow-y-auto p-4 md:p-8 bg-[#F8FAFC]">
         <div className="flex justify-between items-center mb-6 md:hidden">
-           <h1 className="font-black text-xl text-indigo-600">EduControl</h1>
-           {isSyncing && <Loader2 className="animate-spin text-indigo-600" size={20} />}
+           <h1 className="font-black text-xl text-[#7DA142]">EduControl</h1>
+           {isSyncing && <Loader2 className="animate-spin text-[#7DA142]" size={20} />}
         </div>
 
         <div className="relative flex-1">
@@ -717,17 +717,17 @@ export default function App() {
                   <p className="text-slate-700 font-medium">Escanea tu código QR o ingresa tu DNI</p>
                 </div>
                 <div className="bg-white p-1 rounded-2xl border border-gray-200 flex shadow-sm">
-                  <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>ENTRADA</button>
-                  <button onClick={() => setAttendanceType('SALIDA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'SALIDA' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>SALIDA</button>
+                  <button onClick={() => setAttendanceType('ENTRADA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'ENTRADA' ? 'bg-[#22C55E] text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>ENTRADA</button>
+                  <button onClick={() => setAttendanceType('SALIDA')} className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${attendanceType === 'SALIDA' ? 'bg-[#FF8A65] text-white shadow-lg' : 'text-slate-600 hover:text-slate-900'}`}>SALIDA</button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden max-w-2xl mx-auto">
+              <div className="bg-[#FFFFFF] rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden max-w-2xl mx-auto">
                 <div className="flex border-b border-gray-100">
-                  <button onClick={() => setMode('scan')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'scan' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`} aria-label="Activar escáner QR">
+                  <button onClick={() => setMode('scan')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'scan' ? 'bg-slate-50 text-[#7DA142] border-b-2 border-[#7DA142]' : 'text-slate-500 hover:text-slate-700'}`} aria-label="Activar escáner QR">
                     <QrCode size={18} /> Escáner
                   </button>
-                  <button onClick={() => setMode('manual')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'manual' ? 'bg-indigo-50 text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`} aria-label="Ingresar DNI manualmente">
+                  <button onClick={() => setMode('manual')} className={`flex-1 py-4 font-bold flex items-center justify-center gap-2 ${mode === 'manual' ? 'bg-slate-50 text-[#7DA142] border-b-2 border-[#7DA142]' : 'text-slate-500 hover:text-slate-700'}`} aria-label="Ingresar DNI manualmente">
                     <Keyboard size={18} /> Manual
                   </button>
                 </div>
@@ -751,7 +751,7 @@ export default function App() {
                         <label htmlFor="teacher-dni-input" className="text-xs font-bold text-slate-700 uppercase tracking-widest">Ingrese DNI del Docente</label>
                         <input type="text" value={teacherId} onChange={(e) => setTeacherId(e.target.value.replace(/\D/g, ''))} className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl focus:border-indigo-500 outline-none text-2xl font-mono text-center shadow-inner" placeholder="00000000" autoFocus />
                       </div>
-                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center gap-3" aria-label={`Registrar ${attendanceType}`}>
+                      <button type="submit" disabled={isSubmitting || !teacherId} className="w-full bg-[#7ED321] text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-green-200 hover:bg-[#8CD63F] active:scale-[0.98] transition-all flex items-center justify-center gap-3" aria-label={`Registrar ${attendanceType}`}>
                         {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 size={24} />} REGISTRAR {attendanceType}
                       </button>
                     </form>
@@ -765,19 +765,19 @@ export default function App() {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Gestión Docente</h2>
-                <button onClick={() => setShowAddTeacher(true)} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Agregar nuevo docente"> 
+                <button onClick={() => setShowAddTeacher(true)} className="bg-[#7ED321] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-green-100 hover:bg-[#8CD63F] transition-all" aria-label="Agregar nuevo docente"> 
                   <UserPlus size={20} /> Nuevo
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.isArray(teachers) && teachers.filter(t => t && t.id).map(t => (
-                  <div key={t.id} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden">
+                  <div key={t.id} className="bg-[#FFFFFF] p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-lg transition-all group relative overflow-hidden">
                     <div className="flex justify-between items-start mb-5 relative z-10">
                       <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100">
                         <Users size={24} />
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-all" title="Ver QR">
+                        <button onClick={() => setSelectedTeacherQR(t)} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-[#7DA142] hover:bg-green-50 transition-all" title="Ver QR">
                           <QrCode size={18} />
                         </button>
                         <button onClick={() => { setEditingTeacher(t); setShowEditTeacher(true); }} className="p-2 bg-slate-50 rounded-xl text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-all" title="Editar">
@@ -789,7 +789,7 @@ export default function App() {
                       </div>
                     </div>
                     <h3 className="font-black text-slate-800 text-lg leading-tight">{t.first_name} {t.last_name}</h3>
-                    <p className="text-sm text-indigo-600 font-semibold">{t.specialty}</p>
+                    <p className="text-sm text-[#7DA142] font-semibold">{t.specialty}</p>
                     <p className="text-xs font-mono text-slate-600 mt-3 tracking-widest bg-slate-100 p-2 rounded-lg inline-block">{t.id}</p>
                   </div>
                 ))}
@@ -801,11 +801,11 @@ export default function App() {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-black text-slate-800">Inasistencias</h2>
-                <button onClick={() => setShowAddAbsence(true)} className="bg-rose-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-rose-700 transition-all" aria-label="Registrar nueva falta"> 
+                <button onClick={() => setShowAddAbsence(true)} className="bg-[#FF8A65] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-rose-100 hover:bg-[#FF7F50] transition-all" aria-label="Registrar nueva falta"> 
                   <AlertCircle size={20} /> Registrar Falta
                 </button>
               </div>
-              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+              <div className="bg-[#FFFFFF] rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-100">
@@ -822,7 +822,7 @@ export default function App() {
                         <td className="px-6 py-4 font-bold">{a.teacher_name}</td>
                         <td className="px-6 py-4 text-sm">{a.date}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${String(a.status).includes('JUSTIFICADA') ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'}`}>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${String(a.status).includes('JUSTIFICADA') ? 'bg-blue-100 text-blue-700' : 'bg-[#FF8A65]/10 text-[#FF8A65]'}`}>
                             {a.status}
                           </span>
                         </td>
@@ -859,13 +859,13 @@ export default function App() {
                       className="bg-white border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
                     />
                   </div>
-                  <button onClick={downloadExcel} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all self-end" aria-label="Exportar reporte a Excel">
+                  <button onClick={downloadExcel} className="bg-[#F5C623] text-black px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-[#FFD447] shadow-lg shadow-yellow-100 transition-all self-end" aria-label="Exportar reporte a Excel">
                     <Download size={18} /> 
                     <span className="hidden sm:inline">Exportar Excel</span>
                   </button>
                 </div>
               </div>
-              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+              <div className="bg-[#FFFFFF] rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
                   <thead><tr className="bg-gray-50"><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Docente</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Evento</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Hora</th><th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase">Estado</th></tr></thead>
                   <tbody className="divide-y divide-gray-50">
@@ -873,18 +873,18 @@ export default function App() {
                       <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4"><div className="font-black text-slate-800 uppercase text-sm">{r.teacher_name}</div><div className="text-[10px] font-mono text-slate-600">{r.teacher_id}</div></td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200') : 'bg-blue-50 text-blue-700 border-blue-200'}`} aria-label={`Evento: ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'Tarde' : 'Asistió') : r.type}`}>
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black border ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'bg-[#FF8A65]/10 text-[#FF8A65] border-[#FF8A65]/20' : 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20') : 'bg-blue-50 text-blue-700 border-blue-200'}`} aria-label={`Evento: ${r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'Tarde' : 'Asistió') : r.type}`}>
                             {r.type === 'ENTRADA' ? (r.status === 'TARDE' ? 'TARDE' : 'ASISTIÓ') : r.type}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-700">{r.date} {r.time}</td>
                         <td className="px-6 py-4">
                           {r.status === 'PENDIENTE' ? (
-                            <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-[10px] animate-pulse" aria-label="Estado: Pendiente de sincronizar">SIN SUBIR</span>
+                            <span className="bg-[#F5C623]/10 text-[#F5C623] px-2 py-1 rounded font-bold text-[10px] animate-pulse" aria-label="Estado: Pendiente de sincronizar">SIN SUBIR</span>
                           ) : r.status === 'TARDE' ? (
-                            <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded font-bold text-[10px]" aria-label="Estado: Tarde">⚠️ TARDE</span>
+                            <span className="bg-[#FF8A65]/10 text-[#FF8A65] px-2 py-1 rounded font-bold text-[10px]" aria-label="Estado: Tarde">⚠️ TARDE</span>
                           ) : (
-                            <span className="text-emerald-700 font-bold text-[10px]" aria-label="Estado: Puntual">✓ PUNTUAL</span>
+                            <span className="text-[#22C55E] font-bold text-[10px]" aria-label="Estado: Puntual">✓ PUNTUAL</span>
                           )}
                         </td>
                       </tr>
@@ -908,7 +908,7 @@ export default function App() {
                 <input id="login-username" type="text" required value={loginUsername} onChange={e => setLoginUsername(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" placeholder="Usuario" aria-label="Campo de usuario" />
                 <label htmlFor="login-password" className="sr-only">Contraseña</label>
                 <input id="login-password" type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-indigo-500" placeholder="Contraseña" aria-label="Campo de contraseña" />
-                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-colors" aria-label="Iniciar sesión">ENTRAR</button>
+                <button type="submit" className="w-full bg-[#7ED321] text-white py-5 rounded-2xl font-black shadow-lg hover:bg-[#8CD63F] transition-colors" aria-label="Iniciar sesión">ENTRAR</button>
                 <button type="button" onClick={() => setShowLogin(false)} className="w-full text-slate-600 font-bold text-sm hover:text-slate-800 transition-colors" aria-label="Cancelar inicio de sesión">Cancelar</button>
               </form>
             </motion.div>
@@ -948,7 +948,7 @@ export default function App() {
                   <label htmlFor="absence-reason" className="text-xs font-bold text-slate-700 uppercase">Motivo</label>
                   <textarea id="absence-reason" value={newAbsence.reason} onChange={e => setNewAbsence({...newAbsence, reason: e.target.value})} className="w-full px-6 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none h-24 resize-none focus:border-indigo-500" placeholder="Opcional..." aria-label="Motivo de la falta" />
                 </div>
-                <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors" aria-label="Guardar registro de falta">GUARDAR FALTA</button>
+                <button type="submit" className="w-full bg-[#FF8A65] text-white py-5 rounded-2xl font-black shadow-lg shadow-rose-100 hover:bg-[#FF7F50] transition-colors" aria-label="Guardar registro de falta">GUARDAR FALTA</button>
               </form>
             </motion.div>
           </div>
@@ -1030,7 +1030,7 @@ export default function App() {
                 </div>
 
                 <div className="p-8 pt-4 border-t border-gray-50 bg-white">
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all" aria-label="Guardar nuevo docente">Guardar Docente</button>
+                  <button type="submit" className="w-full bg-[#7ED321] text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-green-100 hover:bg-[#8CD63F] transition-all" aria-label="Guardar nuevo docente">Guardar Docente</button>
                 </div>
               </form>
             </motion.div>
@@ -1098,7 +1098,7 @@ export default function App() {
                   </div>
                 </div>
                 <div className="p-8 pt-4 border-t border-gray-50 bg-white">
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">Guardar Cambios</button>
+                  <button type="submit" className="w-full bg-[#7ED321] text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-green-100 hover:bg-[#8CD63F] transition-all">Guardar Cambios</button>
                 </div>
               </form>
             </motion.div>
@@ -1111,11 +1111,11 @@ export default function App() {
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} className="bg-white rounded-[3rem] p-12 w-full max-w-sm relative z-10 shadow-2xl text-center">
               <button onClick={() => setSelectedTeacherQR(null)} className="absolute top-8 right-8 p-2 hover:bg-gray-100 rounded-full transition-colors text-slate-400"><X size={24} /></button>
               <div className="mb-8">
-                <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-indigo-200">
+                <div className="w-20 h-20 bg-[#7DA142] rounded-3xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-green-200">
                   <QrCode size={40} />
                 </div>
                 <h2 className="text-2xl font-black text-slate-800 leading-tight">{selectedTeacherQR.first_name}<br/>{selectedTeacherQR.last_name}</h2>
-                <p className="text-sm font-bold text-indigo-600 mt-2">{selectedTeacherQR.specialty}</p>
+                <p className="text-sm font-bold text-[#7DA142] mt-2">{selectedTeacherQR.specialty}</p>
                 <p className="text-xs font-mono text-slate-400 mt-1 uppercase tracking-widest">{selectedTeacherQR.id}</p>
               </div>
               <div className="bg-white p-6 rounded-[2.5rem] border-4 border-slate-50 inline-block mb-10 shadow-inner">
@@ -1125,7 +1125,7 @@ export default function App() {
                 <button onClick={() => window.print()} className="w-full bg-slate-100 text-slate-900 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-200 transition-all shadow-sm">
                   <Printer size={20} /> Imprimir Código
                 </button>
-                <button onClick={downloadQRCode} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg">
+                <button onClick={downloadQRCode} className="w-full bg-[#7ED321] text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-[#8CD63F] transition-all shadow-lg">
                   <Download size={20} /> Descargar Imagen
                 </button>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">
